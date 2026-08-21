@@ -69,7 +69,7 @@ function heatPalette(count: number, maxCount: number) {
   const pressure = maxCount <= 0 ? 0 : count / maxCount;
   if (pressure >= 0.75) {
     return {
-      label: "#c8102e",
+      label: "#ff0a0a",
       core: "rgba(200,16,46,0.72)",
       mid: "rgba(239,68,68,0.44)",
       outer: "rgba(246,180,10,0.2)",

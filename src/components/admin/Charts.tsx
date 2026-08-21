@@ -14,7 +14,7 @@ import {
   CartesianGrid,
 } from "recharts";
 
-const COLORS = ["#C8102E", "#F6B40A", "#1F1A17", "#9CA3AF"];
+const COLORS = ["#FF0A0A", "#F6B40A", "#1F1A17", "#9CA3AF"];
 
 export function SalesChart({ data }: { data: { day: string; ventas: number }[] }) {
   return (
@@ -22,8 +22,8 @@ export function SalesChart({ data }: { data: { day: string; ventas: number }[] }
       <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#C8102E" stopOpacity={0.35} />
-            <stop offset="100%" stopColor="#C8102E" stopOpacity={0} />
+            <stop offset="0%" stopColor="#FF0A0A" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#FF0A0A" stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#00000010" vertical={false} />
@@ -43,7 +43,7 @@ export function SalesChart({ data }: { data: { day: string; ventas: number }[] }
         <Area
           type="monotone"
           dataKey="ventas"
-          stroke="#C8102E"
+          stroke="#FF0A0A"
           strokeWidth={2.5}
           fill="url(#salesGradient)"
         />

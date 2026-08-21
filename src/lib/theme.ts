@@ -19,11 +19,11 @@ export interface AccentTheme {
 export const ACCENT_THEMES: AccentTheme[] = [
   {
     key: "rojo",
-    label: "Rojo Entre Ríos",
-    description: "El color clásico de la marca.",
-    red: "200 16 46",
-    dark: "155 12 34",
-    swatch: "#C8102E",
+    label: "Rojo Avícola",
+    description: "El rojo intenso del logo de la marca.",
+    red: "255 10 10",
+    dark: "205 0 0",
+    swatch: "#FF0A0A",
   },
   {
     key: "azul",

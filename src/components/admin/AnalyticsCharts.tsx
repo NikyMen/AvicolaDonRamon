@@ -13,7 +13,7 @@ import {
   Cell,
 } from "recharts";
 
-const RED = "#C8102E";
+const RED = "#FF0A0A";
 const GOLD = "#F6B40A";
 const INK = "#1F1A17";
 

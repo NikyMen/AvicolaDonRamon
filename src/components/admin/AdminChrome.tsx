@@ -14,7 +14,6 @@ import {
   TicketPercent,
   Sparkles,
   LineChart,
-  Store,
   Bell,
   Search,
   Menu,
@@ -69,13 +68,6 @@ function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () =>
         })}
       </nav>
       <div className="space-y-1 border-t border-white/10 p-3">
-        <Link
-          href="/"
-          onClick={onNavigate}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/65 hover:bg-white/10 hover:text-white"
-        >
-          <Store size={18} /> Ver tienda
-        </Link>
         <LogoutButton className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/65 hover:bg-white/10 hover:text-white" />
       </div>
     </>

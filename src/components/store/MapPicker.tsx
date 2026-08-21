@@ -65,7 +65,7 @@ export function MapPicker({
       // con bundlers y queda con los colores de la marca.
       const icon = L.divIcon({
         className: "",
-        html: `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="rgb(200,16,46)" stroke="#fff" stroke-width="1"><path d="M20 10c0 6-8 13-8 13S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="#F6B40A" stroke="none"/></svg>`,
+        html: `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="rgb(255,10,10)" stroke="#fff" stroke-width="1"><path d="M20 10c0 6-8 13-8 13S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="#F6B40A" stroke="none"/></svg>`,
         iconSize: [38, 38],
         iconAnchor: [19, 36],
       });

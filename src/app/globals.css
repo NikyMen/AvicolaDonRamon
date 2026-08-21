@@ -6,10 +6,10 @@
   --font-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-display: "Georgia", "Times New Roman", serif;
 
-  /* Acento de marca configurable (canales RGB). Default: Rojo Entre Ríos.
+  /* Acento de marca configurable (canales RGB). Default: rojo del logo.
      Se sobrescribe desde el panel · ver src/lib/theme.ts */
-  --brand-red: 200 16 46;
-  --brand-dark: 155 12 34;
+  --brand-red: 255 10 10;
+  --brand-dark: 205 0 0;
 }
 
 html,

@@ -278,7 +278,7 @@ export function EntregasClient({ sucursales, repartidores, envios, enCurso = 0 }
                               type="checkbox"
                               checked={marcado}
                               onChange={() => toggle(e.id)}
-                              className="mt-1 h-4 w-4 flex-none accent-[rgb(200,16,46)]"
+                              className="mt-1 h-4 w-4 flex-none accent-[#FF0A0A]"
                             />
                             <span className="min-w-0 flex-1">
                               <span className="flex flex-wrap items-center gap-x-2">
