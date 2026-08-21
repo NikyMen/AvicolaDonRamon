@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -18,6 +18,7 @@ import {
   Search,
   Menu,
   X,
+  Settings,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -39,9 +40,51 @@ const nav = [
   { href: "/admin/analitica", label: "Analítica", icon: LineChart, perm: "analitica" },
 ];
 
+const HIDDEN_MODULES_KEY = "admin:hidden-modules";
+const AI_ENABLED_KEY = "assistant:enabled";
+const configurableModules = [
+  { key: "entregas", label: "Entregas" },
+  { key: "envios", label: "Envios" },
+  { key: "ofertas", label: "Ofertas" },
+  { key: "clientes", label: "Clientes" },
+  { key: "cupones", label: "Cupones y promos" },
+];
+
 function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const items = nav.filter((item) => !item.perm || hasPermission(perms, item.perm));
+  const [hiddenModules, setHiddenModules] = useState<string[]>([]);
+  const [configurationOpen, setConfigurationOpen] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(true);
+
+  useEffect(() => {
+    try {
+      const hidden = JSON.parse(localStorage.getItem(HIDDEN_MODULES_KEY) ?? "[]");
+      if (Array.isArray(hidden)) setHiddenModules(hidden);
+      setAiEnabled(localStorage.getItem(AI_ENABLED_KEY) !== "false");
+    } catch {
+      // Se mantienen los valores por defecto si el navegador bloquea localStorage.
+    }
+  }, []);
+
+  function toggleModule(key: string) {
+    setHiddenModules((current) => {
+      const next = current.includes(key) ? current.filter((item) => item !== key) : [...current, key];
+      localStorage.setItem(HIDDEN_MODULES_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  function toggleAi() {
+    setAiEnabled((current) => {
+      const next = !current;
+      localStorage.setItem(AI_ENABLED_KEY, String(next));
+      return next;
+    });
+  }
+
+  const items = nav.filter(
+    (item) => (!item.perm || hasPermission(perms, item.perm)) && !hiddenModules.includes(item.perm ?? "")
+  );
 
   return (
     <>
@@ -68,6 +111,34 @@ function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () =>
         })}
       </nav>
       <div className="space-y-1 border-t border-white/10 p-3">
+        <div>
+          <button
+            type="button"
+            onClick={() => setConfigurationOpen((open) => !open)}
+            aria-expanded={configurationOpen}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/65 hover:bg-white/10 hover:text-white"
+          >
+            <Settings size={18} />
+            Configuración
+          </button>
+          {configurationOpen && (
+            <div className="mt-1 space-y-1 rounded-lg bg-white/5 p-2">
+              <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/40">
+                Ocultar módulos
+              </p>
+              {configurableModules.map((module) => (
+                <label key={module.key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs text-white/75 hover:bg-white/10">
+                  <input type="checkbox" checked={hiddenModules.includes(module.key)} onChange={() => toggleModule(module.key)} className="accent-brand-red" />
+                  {module.label}
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+        <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/65 hover:bg-white/10 hover:text-white">
+          <input type="checkbox" checked={!aiEnabled} onChange={toggleAi} className="accent-brand-red" />
+          Apagar asistente de IA
+        </label>
         <LogoutButton className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/65 hover:bg-white/10 hover:text-white" />
       </div>
     </>

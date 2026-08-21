@@ -21,19 +21,26 @@ interface Msg {
  */
 export function FloatingActions() {
   const [open, setOpen] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(true);
+
+  useEffect(() => {
+    setAiEnabled(localStorage.getItem("assistant:enabled") !== "false");
+  }, []);
 
   return (
     <>
       <div className="fixed bottom-24 right-4 z-40 flex flex-col items-end gap-3 md:bottom-6">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-label={open ? "Cerrar el asistente" : "Abrir el asistente"}
-          aria-expanded={open}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-ink text-white shadow-card transition hover:scale-105 hover:bg-brand-red active:scale-95"
-        >
-          {open ? <X size={24} /> : <Sparkles size={24} />}
-        </button>
+        {aiEnabled && (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-label={open ? "Cerrar el asistente" : "Abrir el asistente"}
+            aria-expanded={open}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-ink text-white shadow-card transition hover:scale-105 hover:bg-brand-red active:scale-95"
+          >
+            {open ? <X size={24} /> : <Sparkles size={24} />}
+          </button>
+        )}
 
         <a
           href={WHATSAPP_SOPORTE_URL}
@@ -53,7 +60,7 @@ export function FloatingActions() {
         </a>
       </div>
 
-      {open && <ChatPanel onClose={() => setOpen(false)} />}
+      {aiEnabled && open && <ChatPanel onClose={() => setOpen(false)} />}
     </>
   );
 }
