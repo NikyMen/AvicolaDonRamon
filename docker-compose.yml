@@ -1,0 +1,74 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: polleria-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-polleria}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en el archivo .env}
+      POSTGRES_DB: ${POSTGRES_DB:-polleria}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-polleria}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No exponemos el puerto al exterior por seguridad; solo la red interna.
+    expose:
+      - "5432"
+
+  web:
+    build: .
+    image: polleria-entre-rios:latest
+    container_name: polleria-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-polleria}:${POSTGRES_PASSWORD:?Definí POSTGRES_PASSWORD en el archivo .env}@db:5432/${POSTGRES_DB:-polleria}?schema=public
+      # Clave que tu bot de n8n debe enviar en Authorization: Bearer <API_KEY>
+      API_KEY: ${API_KEY:?Definí API_KEY en el archivo .env}
+      # Sesiones y login por OTP (WhatsApp vía n8n)
+      SESSION_SECRET: ${SESSION_SECRET:?Definí SESSION_SECRET en el archivo .env}
+      OTP_WHATSAPP_WEBHOOK_URL: ${OTP_WHATSAPP_WEBHOOK_URL:?Definí OTP_WHATSAPP_WEBHOOK_URL en el archivo .env}
+      OTP_WEBHOOK_SECRET: ${OTP_WEBHOOK_SECRET:-}
+      OTP_LOG_FALLBACK: ${OTP_LOG_FALLBACK:-}
+      OTP_LOG_CODE: ${OTP_LOG_CODE:-}
+      # Panel /admin
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Definí ADMIN_PASSWORD en el archivo .env}
+      ADMIN_PHONES: ${ADMIN_PHONES:-}
+      # Pagos online (Mercado Pago Checkout Pro)
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:?Definí MP_ACCESS_TOKEN en el archivo .env}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:?Definí NEXT_PUBLIC_BASE_URL en el archivo .env}
+      # Demo: si es true, saltea Mercado Pago y marca el pago como aprobado.
+      CHECKOUT_FAKE_PAYMENT: ${CHECKOUT_FAKE_PAYMENT:-}
+      # Avisos de estado de pedidos a n8n (ver docs/n8n-pedidos.md)
+      N8N_ORDER_WEBHOOK_URL: ${N8N_ORDER_WEBHOOK_URL:-}
+      # Webhook exclusivo para el aviso de salida al cerrar un lote.
+      N8N_ORDER_DISPATCH_WEBHOOK_URL: ${N8N_ORDER_DISPATCH_WEBHOOK_URL:-}
+      # Webhook exclusivo para la confirmación de entrega.
+      N8N_ORDER_DELIVERED_WEBHOOK_URL: ${N8N_ORDER_DELIVERED_WEBHOOK_URL:-}
+      N8N_ORDER_WEBHOOK_SECRET: ${N8N_ORDER_WEBHOOK_SECRET:-}
+      N8N_DELIVERY_CANCEL_WEBHOOK_URL: ${N8N_DELIVERY_CANCEL_WEBHOOK_URL:-}
+      N8N_DELIVERY_CANCEL_WEBHOOK_SECRET: ${N8N_DELIVERY_CANCEL_WEBHOOK_SECRET:-}
+      # Asistente de IA de la tienda
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - product_uploads:/app/public/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  product_uploads:

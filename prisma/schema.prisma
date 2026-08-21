@@ -1,0 +1,303 @@
+// Esquema de la base de datos de Pollería Entre Ríos.
+// Motor: PostgreSQL. ORM: Prisma.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Category {
+  cortes
+  cajones
+  rebozados
+}
+
+enum OrderStatus {
+  pendiente
+  no_pagado
+  en_preparacion
+  en_camino
+  entregado
+  cancelado
+}
+
+enum PaymentMethod {
+  efectivo
+  tarjeta
+  mercadopago
+  transferencia
+}
+
+enum Role {
+  cliente
+  admin
+}
+
+enum StaffRole {
+  cajero
+  cocina
+  repartidor
+  encargado
+  admin
+}
+
+model Product {
+  id          String   @id
+  name        String
+  description String
+  price       Int
+  oldPrice    Int?
+  category    Category
+  image       String
+  badge       String?
+  // Producto que aparece en la sección "Ofertas del día" de la home.
+  dailyOffer  Boolean  @default(false)
+  available   Boolean  @default(true)
+  // Unidades disponibles. Se descuenta al crear el pedido y se devuelve si el
+  // pedido se cancela. Un producto se vende solo si available && stock > 0.
+  stock       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems      OrderItem[]
+  discountCoupons Coupon[]    @relation("CouponDiscountProduct")
+  giftCoupons     Coupon[]    @relation("CouponGiftProduct")
+
+  @@index([category])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?  @unique
+  phone     String   @unique
+  document  String?
+  role      Role     @default(cliente)
+  joinedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([joinedAt])
+}
+
+model Order {
+  id                  String        @id @default(cuid())
+  seq                 Int           @default(autoincrement())
+  code                String?       @unique
+  // Identifica un intento de checkout del navegador. Evita crear dos pedidos
+  // cuando hay doble click, reintento de red o una respuesta perdida.
+  checkoutId          String?       @unique
+  customer            Customer?     @relation(fields: [customerId], references: [id])
+  customerId          String?
+  customerName        String
+  phone               String?
+  address             String?
+  // Entrega: siempre "envio" a domicilio (no hay retiro por sucursal).
+  entrega             String?
+  // Rango horario de entrega elegido por el cliente ("08-12" o "17-20").
+  deliverySlot        String?
+  // Día estimado elegido junto con la franja (fecha calendario de Argentina).
+  deliveryDate        DateTime?     @db.Date
+  // Punto exacto de entrega marcado en el mapa.
+  lat                 Float?
+  lng                 Float?
+  // Código que el cliente le da al repartidor al recibir el pedido; al
+  // validarlo se marca como entregado y n8n recibe el aviso de confirmación.
+  deliveryCode        String?
+  // Momento exacto en que el repartidor confirmó la entrega.
+  deliveredAt         DateTime?
+  // Reparto: al "cerrar pedidos" se arma una ruta optimizada y cada envío
+  // recibe su posición (routeSeq), el momento del despacho, la sucursal origen
+  // y el repartidor (Staff) a cargo de la entrega.
+  routeSeq            Int?
+  dispatchedAt        DateTime?
+  // Identifica cada cierre/lote aunque un repartidor tenga varios en curso.
+  routeBatchId        String?
+  // Al cerrar manualmente el reparto, deja de mostrarse como ruta activa.
+  routeClosedAt       DateTime?
+  originSucursalId    String?
+  repartidorId        String?
+  total               Int
+  discount            Int           @default(0)
+  coupon              Coupon?       @relation(fields: [couponId], references: [id])
+  couponId            String?
+  couponCode          String?
+  // El cupón reserva un cupo durante un minuto mientras se completa el pago.
+  // usedCount recién se incrementa cuando Mercado Pago acredita el pedido.
+  couponReservedUntil DateTime?
+  couponUsedAt        DateTime?
+  shippingFee         Int           @default(0)
+  shippingDistanceKm  Float?
+  shippingFreeReason  String?
+  status              OrderStatus   @default(pendiente)
+  payment             PaymentMethod
+  // Referencias verificadas de Mercado Pago. La URL se conserva para que un
+  // reintento del mismo checkout vuelva a la misma preferencia.
+  mpPreferenceId      String?       @unique
+  mpInitPoint         String?
+  mpPaymentId         String?       @unique
+  paidAt              DateTime?
+  cancelledAt         DateTime?
+  // Cancelación logística: el pedido sigue pagado y debe asignarse a otro repartidor.
+  deliveryRetryAt     DateTime?
+  notes               String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  items OrderItem[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([repartidorId, status])
+  @@index([routeBatchId, routeClosedAt])
+  @@index([couponId])
+  @@index([couponId, couponReservedUntil])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  product   Product @relation(fields: [productId], references: [id])
+  productId String
+  name      String
+  qty       Int
+  price     Int
+}
+
+// Cupón configurable desde el panel. Puede descontar un porcentaje sobre todo
+// el carrito o sobre un producto puntual, y sumar un producto de regalo.
+model Coupon {
+  id                String   @id @default(cuid())
+  code              String   @unique
+  // "coupon" y "three_for_two" requieren código; "second_unit" se aplica automáticamente.
+  kind              String   @default("coupon")
+  automatic         Boolean  @default(false)
+  maxUses           Int
+  usedCount         Int      @default(0)
+  discountPercent   Int      @default(0)
+  discountProduct   Product? @relation("CouponDiscountProduct", fields: [discountProductId], references: [id])
+  discountProductId String?
+  giftProduct       Product? @relation("CouponGiftProduct", fields: [giftProductId], references: [id])
+  giftProductId     String?
+  giftQty           Int      @default(1)
+  // Regalo de bienvenida: solo vale en la primera compra de cada teléfono.
+  firstPurchaseOnly Boolean  @default(false)
+  oncePerPhone      Boolean  @default(false)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([active, code])
+}
+
+// Código OTP de un solo uso para el login por teléfono (WhatsApp vía n8n).
+// Una sola fila activa por teléfono: se reemplaza al pedir un código nuevo
+// y se borra al verificarlo con éxito.
+model OtpCode {
+  phone     String   @id
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+enum AnalyticsType {
+  visit
+  cart_add
+}
+
+// Evento de analítica de la tienda (visita de página o producto agregado al carrito).
+model AnalyticsEvent {
+  id        String        @id @default(cuid())
+  type      AnalyticsType
+  productId String?
+  path      String?
+  createdAt DateTime      @default(now())
+
+  @@index([type, createdAt])
+  @@index([productId])
+}
+
+// Una fila por sesión de navegador. El heartbeat permite calcular visitantes
+// conectados sin guardar un evento nuevo en cada actualización.
+model AnalyticsSession {
+  id         String   @id
+  path       String?
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  @@index([lastSeenAt])
+}
+
+// Posteo/banner de la sección "Novedades" de la home, editable desde el admin.
+model Novedad {
+  id        String   @id @default(cuid())
+  title     String?
+  image     String
+  link      String?
+  active    Boolean  @default(true)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, position])
+}
+
+// Banner principal de la home ("Super Oferta"), editable desde /admin/ofertas.
+// Fila única (id fijo "main"): producto destacado con precio de oferta y
+// fondo en imagen o video mp4.
+model SuperOferta {
+  id        String   @id @default("main")
+  title     String
+  subtitle  String?
+  price     Int
+  oldPrice  Int?
+  image     String
+  video     String?
+  link      String?
+  cartProductId String   @default("p-medallones-1kg")
+  cartQuantity  Int      @default(2)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Integrante del equipo de la pollería (empleado), gestionable desde el admin.
+model DeliverySettings {
+  id              String   @id @default("main")
+  pricePerKm      Int      @default(500)
+  freeAllSlots    Boolean  @default(false)
+  freeSaturday    Boolean  @default(false)
+  fixedSucursalId String   @default("maipu")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Staff {
+  id           String    @id @default(cuid())
+  name         String
+  role         StaffRole @default(cajero)
+  phone        String?
+  email        String?
+  // Login del panel: usuario único + contraseña hasheada (scrypt).
+  // Si están en null, el integrante no puede iniciar sesión (solo directorio).
+  username     String?   @unique
+  passwordHash String?
+  // Módulos del panel habilitados (claves de PERM_MODULES). Vacío = sin acceso.
+  permissions  String[]  @default([])
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([active])
+}

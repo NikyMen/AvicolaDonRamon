@@ -1,0 +1,216 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Georgia", "Times New Roman", serif;
+
+  /* Acento de marca configurable (canales RGB). Default: Rojo Entre Ríos.
+     Se sobrescribe desde el panel · ver src/lib/theme.ts */
+  --brand-red: 200 16 46;
+  --brand-dark: 155 12 34;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background-color: #f1f0ee;
+  color: theme("colors.brand.ink");
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Oculta scrollbars horizontales en carruseles */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ---------- Animación de entrada de las tarjetas ---------- */
+@keyframes card-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.card-pop {
+  animation: card-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10%) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(420px) rotate(540deg);
+    opacity: 0;
+  }
+}
+.confetti-piece {
+  position: absolute;
+  top: -10px;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  animation: confetti-fall 1.6s ease-in both;
+}
+
+/* ---------- Animaciones del hero "Super Oferta" ---------- */
+@keyframes so-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.so-pop {
+  animation: so-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.so-delay-1 {
+  animation-delay: 0.12s;
+}
+.so-delay-2 {
+  animation-delay: 0.24s;
+}
+.so-delay-3 {
+  animation-delay: 0.36s;
+}
+
+/* Zoom lento tipo Ken Burns para la imagen de fondo */
+@keyframes so-zoom {
+  from {
+    transform: translateX(0) scale(1.01);
+  }
+  to {
+    transform: translateX(-10px) scale(1.06);
+  }
+}
+.so-zoom {
+  animation: so-zoom 12s ease-in-out infinite alternate;
+}
+
+@keyframes so-sweep {
+  0%,
+  100% {
+    transform: translateX(-8%) rotate(-12deg);
+    opacity: 0.18;
+  }
+  50% {
+    transform: translateX(16%) rotate(-12deg);
+    opacity: 0.34;
+  }
+}
+.so-sweep {
+  animation: so-sweep 4.8s ease-in-out infinite;
+}
+
+/* Pulso dorado del badge "Super Oferta" */
+@keyframes so-badge-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(246, 180, 10, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(246, 180, 10, 0);
+  }
+}
+.so-badge {
+  animation: so-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both,
+    so-badge-pulse 2.2s ease-out 1s infinite;
+}
+
+/* Brillo que barre el precio de oferta */
+@keyframes so-shine {
+  0% {
+    transform: translateX(-150%) skewX(-20deg);
+  }
+  55%,
+  100% {
+    transform: translateX(280%) skewX(-20deg);
+  }
+}
+.so-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 45%;
+  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: so-shine 3s ease-in-out 1.2s infinite;
+  pointer-events: none;
+}
+
+/* Flotación suave del chip de descuento */
+@keyframes so-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+.so-float {
+  animation: so-float 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .so-pop,
+  .so-badge,
+  .so-zoom,
+  .so-sweep,
+  .so-float,
+  .so-shine::after {
+    animation: none;
+  }
+  .so-pop,
+  .so-badge {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Barra de cuenta regresiva del toast "agregado al carrito" */
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.toast-progress {
+  transform-origin: left;
+  animation-name: toast-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark active:scale-[0.98];
+  }
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-gold px-4 py-2.5 text-sm font-bold text-brand-ink transition hover:brightness-95 active:scale-[0.98];
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+  .input-admin {
+    @apply w-full rounded-lg border border-black/10 bg-brand-cream px-3 py-2 outline-none focus:border-brand-red/40;
+  }
+}
