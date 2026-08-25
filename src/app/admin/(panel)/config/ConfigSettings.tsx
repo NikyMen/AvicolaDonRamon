@@ -2,23 +2,34 @@
 
 import { useEffect, useState } from "react";
 import { Check, EyeOff, SlidersHorizontal } from "lucide-react";
+import {
+  ADMIN_PREFERENCES_EVENT,
+  ADVANCED_REPORTS_KEY,
+  DEFAULT_ADVANCED_REPORTS_VISIBLE,
+  DEFAULT_HIDDEN_MODULES,
+  HIDDEN_MODULES_KEY,
+} from "@/lib/admin-preferences";
 
-const HIDDEN_MODULES_KEY = "admin:hidden-modules";
-const ADVANCED_REPORTS_KEY = "admin:advanced-report-data";
 const modules = [
   ["entregas", "Entregas"], ["envios", "Envios"], ["ofertas", "Ofertas"],
   ["clientes", "Clientes"], ["cupones", "Cupones y promos"],
 ];
 
 export function ConfigSettings() {
-  const [hidden, setHidden] = useState<string[]>([]);
-  const [advanced, setAdvanced] = useState(true);
+  const [hidden, setHidden] = useState<string[]>([...DEFAULT_HIDDEN_MODULES]);
+  const [advanced, setAdvanced] = useState(DEFAULT_ADVANCED_REPORTS_VISIBLE);
 
   useEffect(() => {
     try {
-      const value = JSON.parse(localStorage.getItem(HIDDEN_MODULES_KEY) ?? "[]");
-      if (Array.isArray(value)) setHidden(value);
-      setAdvanced(localStorage.getItem(ADVANCED_REPORTS_KEY) !== "false");
+      const storedModules = localStorage.getItem(HIDDEN_MODULES_KEY);
+      if (storedModules) {
+        const value = JSON.parse(storedModules);
+        if (Array.isArray(value)) setHidden(value);
+      }
+      const storedAdvanced = localStorage.getItem(ADVANCED_REPORTS_KEY);
+      setAdvanced(
+        storedAdvanced === null ? DEFAULT_ADVANCED_REPORTS_VISIBLE : storedAdvanced === "true"
+      );
     } catch {}
   }, []);
 
@@ -26,6 +37,7 @@ export function ConfigSettings() {
     setHidden((current) => {
       const next = current.includes(key) ? current.filter((item) => item !== key) : [...current, key];
       localStorage.setItem(HIDDEN_MODULES_KEY, JSON.stringify(next));
+      window.dispatchEvent(new Event(ADMIN_PREFERENCES_EVENT));
       return next;
     });
   }
@@ -34,6 +46,7 @@ export function ConfigSettings() {
     setAdvanced((current) => {
       const next = !current;
       localStorage.setItem(ADVANCED_REPORTS_KEY, String(next));
+      window.dispatchEvent(new Event(ADMIN_PREFERENCES_EVENT));
       return next;
     });
   }

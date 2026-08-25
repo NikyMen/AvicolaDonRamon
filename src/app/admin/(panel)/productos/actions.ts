@@ -8,7 +8,6 @@ import {
   getProduct,
   updateProduct,
   NoDatabaseError,
-  ProductInUseError,
 } from "@/lib/repo";
 import { deleteProductImage, isUploadedFile, saveProductImage } from "@/lib/product-images";
 import { stripImageVersion } from "@/lib/image-url";
@@ -129,17 +128,8 @@ export async function deleteProductAction(id: string): Promise<SaveProductState>
 
     const deleted = await deleteProduct(id);
     if (!deleted) return { error: "Producto no encontrado." };
-
-    try {
-      await deleteProductImage(product.image);
-    } catch {
-      // El registro ya fue eliminado; la limpieza del archivo no debe bloquearlo.
-    }
   } catch (error) {
     if (error instanceof NoDatabaseError) return { error: error.message };
-    if (error instanceof ProductInUseError) {
-      return { error: "No se puede eliminar: tiene pedidos o cupones asociados. Podés pausarlo." };
-    }
     return { error: "No se pudo eliminar el producto." };
   }
 

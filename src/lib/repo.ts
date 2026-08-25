@@ -70,6 +70,7 @@ const globalForRepo = globalThis as unknown as {
   runtimeCustomers?: Map<string, Customer>;
   runtimeOrders?: Map<string, Order>;
   runtimeSeq?: { n: number };
+  runtimeArchivedProductIds?: Set<string>;
 };
 const runtimeCustomers = globalForRepo.runtimeCustomers ?? new Map<string, Customer>();
 if (!globalForRepo.runtimeCustomers) globalForRepo.runtimeCustomers = runtimeCustomers;
@@ -83,6 +84,15 @@ const runtimeOrders = globalForRepo.runtimeOrders ?? new Map<string, Order>();
 if (!globalForRepo.runtimeOrders) globalForRepo.runtimeOrders = runtimeOrders;
 const runtimeSeq = globalForRepo.runtimeSeq ?? { n: 1042 };
 if (!globalForRepo.runtimeSeq) globalForRepo.runtimeSeq = runtimeSeq;
+const runtimeArchivedProductIds = globalForRepo.runtimeArchivedProductIds ?? new Set<string>();
+if (!globalForRepo.runtimeArchivedProductIds) {
+  globalForRepo.runtimeArchivedProductIds = runtimeArchivedProductIds;
+}
+
+/** Solo para el catálogo efímero de desarrollo sin PostgreSQL. */
+export function isRuntimeProductArchived(id: string): boolean {
+  return !hasDatabase && runtimeArchivedProductIds.has(id);
+}
 
 function runtimeCustomerId(phone: string) {
   return `guest-${phone}`;
@@ -280,6 +290,7 @@ export async function listProducts(f: ProductFilter = {}): Promise<Product[]> {
   if (hasDatabase) {
     const rows = await prisma.product.findMany({
       where: {
+        deletedAt: null,
         category: f.category,
         available: f.available,
         ...(f.search
@@ -296,6 +307,7 @@ export async function listProducts(f: ProductFilter = {}): Promise<Product[]> {
     return rows.map(mapProduct);
   }
   return mockProducts.filter((p) => {
+    if (runtimeArchivedProductIds.has(p.id)) return false;
     if (f.category && p.category !== f.category) return false;
     if (f.available !== undefined && p.available !== f.available) return false;
     if (f.search) {
@@ -309,9 +321,10 @@ export async function listProducts(f: ProductFilter = {}): Promise<Product[]> {
 
 export async function getProduct(id: string): Promise<Product | null> {
   if (hasDatabase) {
-    const p = await prisma.product.findUnique({ where: { id } });
+    const p = await prisma.product.findFirst({ where: { id, deletedAt: null } });
     return p ? mapProduct(p) : null;
   }
+  if (runtimeArchivedProductIds.has(id)) return null;
   const product = mockProducts.find((p) => p.id === id);
   return product ? { ...product, image: versionImageUrl(product.image) } : null;
 }
@@ -320,6 +333,7 @@ export async function listOffers(): Promise<Product[]> {
   if (hasDatabase) {
     const rows = await prisma.product.findMany({
       where: {
+        deletedAt: null,
         OR: [{ oldPrice: { not: null } }, { dailyOffer: true }],
       },
       orderBy: { createdAt: "asc" },
@@ -327,7 +341,11 @@ export async function listOffers(): Promise<Product[]> {
     return rows.map(mapProduct);
   }
   return mockProducts
-    .filter((p) => p.dailyOffer || p.oldPrice != null || p.badge === "Promo del día")
+    .filter(
+      (p) =>
+        !runtimeArchivedProductIds.has(p.id) &&
+        (p.dailyOffer || p.oldPrice != null || p.badge === "Promo del día")
+    )
     .map((p) => ({ ...p, image: versionImageUrl(p.image) }));
 }
 
@@ -359,21 +377,22 @@ export async function createProduct(input: ProductInput & { id?: string }): Prom
       .replace(/[̀-ͯ]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
-  const p = await prisma.product.create({
-    data: {
-      id,
-      name: input.name,
-      description: input.description,
-      price: input.price,
-      oldPrice: input.oldPrice ?? null,
-      category: input.category,
-      image: input.image,
-      badge: input.badge ?? null,
-      dailyOffer: input.dailyOffer ?? false,
-      available: input.available ?? true,
-      stock: input.stock ?? 0,
-    },
-  });
+  const data = {
+    name: input.name,
+    description: input.description,
+    price: input.price,
+    oldPrice: input.oldPrice ?? null,
+    category: input.category,
+    image: input.image,
+    badge: input.badge ?? null,
+    dailyOffer: input.dailyOffer ?? false,
+    available: input.available ?? true,
+    stock: input.stock ?? 0,
+  };
+  const existing = await prisma.product.findUnique({ where: { id } });
+  const p = existing?.deletedAt
+    ? await prisma.product.update({ where: { id }, data: { ...data, deletedAt: null } })
+    : await prisma.product.create({ data: { id, ...data } });
   return mapProduct(p);
 }
 
@@ -383,7 +402,7 @@ export async function updateProduct(
   input: Partial<ProductInput>
 ): Promise<Product | null> {
   ensureDb();
-  const existing = await prisma.product.findUnique({ where: { id } });
+  const existing = await prisma.product.findFirst({ where: { id, deletedAt: null } });
   if (!existing) return null;
   const p = await prisma.product.update({
     where: { id },
@@ -403,28 +422,35 @@ export async function updateProduct(
   return mapProduct(p);
 }
 
-export class ProductInUseError extends Error {
-  constructor() {
-    super("El producto tiene pedidos o cupones asociados.");
-    this.name = "ProductInUseError";
-  }
-}
-
-/** Elimina un producto si no está referenciado por pedidos o cupones. */
+/**
+ * Archiva un producto y desactiva promociones que ya no pueden venderlo.
+ * Conserva la fila para no romper pedidos, cupones ni analítica histórica.
+ */
 export async function deleteProduct(id: string): Promise<Product | null> {
-  ensureDb();
-  const existing = await prisma.product.findUnique({ where: { id } });
-  if (!existing) return null;
-
-  try {
-    const deleted = await prisma.product.delete({ where: { id } });
-    return mapProduct(deleted);
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
-      throw new ProductInUseError();
-    }
-    throw error;
+  if (!hasDatabase) {
+    const product = mockProducts.find((item) => item.id === id);
+    if (!product || runtimeArchivedProductIds.has(id)) return null;
+    runtimeArchivedProductIds.add(id);
+    return { ...product, image: versionImageUrl(product.image) };
   }
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.product.findFirst({ where: { id, deletedAt: null } });
+    if (!existing) return null;
+
+    await Promise.all([
+      tx.coupon.updateMany({
+        where: { OR: [{ discountProductId: id }, { giftProductId: id }] },
+        data: { active: false },
+      }),
+      tx.superOferta.updateMany({ where: { cartProductId: id }, data: { active: false } }),
+    ]);
+
+    const archived = await tx.product.update({
+      where: { id },
+      data: { deletedAt: new Date(), available: false, stock: 0, dailyOffer: false },
+    });
+    return mapProduct(archived);
+  });
 }
 
 // ---------- Cupones ----------
@@ -1072,7 +1098,9 @@ export async function quoteOrder(
 ): Promise<{ lines: { productId: string; name: string; qty: number; price: number }[]; total: number }> {
   ensureDb();
   const ids = items.map((i) => i.productId);
-  const dbProducts = await prisma.product.findMany({ where: { id: { in: ids } } });
+  const dbProducts = await prisma.product.findMany({
+    where: { id: { in: ids }, deletedAt: null },
+  });
   const byId = new Map(dbProducts.map((p) => [p.id, p]));
 
   const lines = items.map((i) => {
@@ -1102,6 +1130,9 @@ async function quoteOrderMem(
 ): Promise<{ lines: OrderItem[]; total: number }> {
   const lines: OrderItem[] = [];
   for (const i of items) {
+    if (runtimeArchivedProductIds.has(i.productId)) {
+      throw new Error(`Producto inexistente: ${i.productId}`);
+    }
     const p = await getProduct(i.productId);
     const name = p?.name ?? i.name ?? i.productId;
     const price = p?.price ?? i.price ?? 0;
@@ -1261,7 +1292,12 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
 
       for (const line of orderLines) {
         const claimed = await tx.product.updateMany({
-          where: { id: line.productId, available: true, stock: { gte: line.qty } },
+          where: {
+            id: line.productId,
+            deletedAt: null,
+            available: true,
+            stock: { gte: line.qty },
+          },
           data: { stock: { decrement: line.qty } },
         });
         if (claimed.count !== 1) {

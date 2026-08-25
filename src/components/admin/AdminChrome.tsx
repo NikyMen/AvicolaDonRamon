@@ -24,6 +24,11 @@ import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { cn } from "@/lib/cn";
 import { hasPermission } from "@/lib/auth/perm-modules";
+import {
+  ADMIN_PREFERENCES_EVENT,
+  DEFAULT_HIDDEN_MODULES,
+  HIDDEN_MODULES_KEY,
+} from "@/lib/admin-preferences";
 
 // `perm` = clave del módulo (PERM_MODULES). Sin `perm` el ítem es visible
 // para cualquier sesión de panel (ej. Dashboard).
@@ -39,20 +44,23 @@ const nav = [
   { href: "/admin/reportes", label: "IA y reportes", icon: Sparkles, perm: "reportes" },
   { href: "/admin/analitica", label: "Analítica", icon: LineChart, perm: "analitica" },
   { href: "/admin/config", label: "Configuración", icon: Settings },
-  { href: "/admin/asistente", label: "Apagar asistente de IA", icon: Sparkles },
+  { href: "/admin/asistente", label: "Asistente WhatsApp", icon: Sparkles, perm: "asistente" },
 ];
-
-const HIDDEN_MODULES_KEY = "admin:hidden-modules";
 
 function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const [hiddenModules, setHiddenModules] = useState<string[]>([]);
+  const [hiddenModules, setHiddenModules] = useState<string[]>([...DEFAULT_HIDDEN_MODULES]);
 
   useEffect(() => {
     const syncHiddenModules = () => {
       try {
-        const value = JSON.parse(localStorage.getItem(HIDDEN_MODULES_KEY) ?? "[]");
-        if (Array.isArray(value)) setHiddenModules(value);
+        const stored = localStorage.getItem(HIDDEN_MODULES_KEY);
+        if (!stored) {
+          setHiddenModules([...DEFAULT_HIDDEN_MODULES]);
+          return;
+        }
+        const value = JSON.parse(stored);
+        setHiddenModules(Array.isArray(value) ? value : [...DEFAULT_HIDDEN_MODULES]);
       } catch {}
     };
     try {
@@ -61,7 +69,11 @@ function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () =>
       // Se mantienen los valores por defecto si el navegador bloquea localStorage.
     }
     window.addEventListener("storage", syncHiddenModules);
-    return () => window.removeEventListener("storage", syncHiddenModules);
+    window.addEventListener(ADMIN_PREFERENCES_EVENT, syncHiddenModules);
+    return () => {
+      window.removeEventListener("storage", syncHiddenModules);
+      window.removeEventListener(ADMIN_PREFERENCES_EVENT, syncHiddenModules);
+    };
   }, []);
 
   const items = nav.filter(

@@ -1,10 +1,5 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { CalendarDays, TrendingUp, UserPlus, Users } from "lucide-react";
 import { formatARS, formatCantidad } from "@/lib/format";
-
-const KEY = "admin:advanced-report-data";
 
 type Props = {
   stats: { total: number; thisMonth: number; last30Days: number; lastMonth: number; byMonth: { month: string; label: string; count: number }[] };
@@ -12,14 +7,6 @@ type Props = {
 };
 
 export function AdvancedReportData({ stats, topBuyers }: Props) {
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    setVisible(localStorage.getItem(KEY) !== "false");
-  }, []);
-
-  if (!visible) return null;
-
   const maxMonth = Math.max(1, ...stats.byMonth.map((m) => m.count));
   const delta = stats.thisMonth - stats.lastMonth;
   const cards = [

@@ -11,6 +11,7 @@ import {
   CouponError,
   NoDatabaseError,
   OutOfStockError,
+  isRuntimeProductArchived,
 } from "@/lib/repo";
 import { hasDatabase } from "@/lib/prisma";
 import { isInsideCorrientes, MIN_ENVIO_TOTAL } from "@/lib/geo";
@@ -69,6 +70,9 @@ async function quoteFromMocks(
 ) {
   const lines = [];
   for (const i of items) {
+    if (isRuntimeProductArchived(i.productId)) {
+      throw new Error(`Producto inexistente: ${i.productId}`);
+    }
     const p = await getProduct(i.productId);
     const name = p?.name ?? i.name;
     const price = p?.price ?? i.price;

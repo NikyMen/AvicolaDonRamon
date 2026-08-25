@@ -205,3 +205,25 @@ export interface DeliveryQuote {
   originSucursalId: string;
   originName: string;
 }
+
+export interface WhatsappKnowledge {
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+  tags: string[];
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WhatsappContact {
+  id: string;
+  phone: string;
+  name?: string;
+  notes?: string;
+  assistantPaused: boolean;
+  lastSeenAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -32,6 +32,7 @@ export const PERM_MODULES: PermModule[] = [
   { key: "cupones", label: "Cupones y promos", href: "/admin/cupones" },
   { key: "reportes", label: "IA y reportes", href: "/admin/reportes" },
   { key: "analitica", label: "Analítica", href: "/admin/analitica" },
+  { key: "asistente", label: "Asistente WhatsApp", href: "/admin/asistente" },
 ];
 
 export const PERM_KEYS: string[] = PERM_MODULES.map((m) => m.key);

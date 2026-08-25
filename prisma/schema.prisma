@@ -46,7 +46,7 @@ enum StaffRole {
 }
 
 model Product {
-  id          String   @id
+  id          String    @id
   name        String
   description String
   price       Int
@@ -55,19 +55,22 @@ model Product {
   image       String
   badge       String?
   // Producto que aparece en la sección "Ofertas del día" de la home.
-  dailyOffer  Boolean  @default(false)
-  available   Boolean  @default(true)
+  dailyOffer  Boolean   @default(false)
+  available   Boolean   @default(true)
   // Unidades disponibles. Se descuenta al crear el pedido y se devuelve si el
   // pedido se cancela. Un producto se vende solo si available && stock > 0.
-  stock       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  stock       Int       @default(0)
+  // Baja lógica: conserva relaciones e historial, pero lo excluye del catálogo.
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   orderItems      OrderItem[]
   discountCoupons Coupon[]    @relation("CouponDiscountProduct")
   giftCoupons     Coupon[]    @relation("CouponGiftProduct")
 
   @@index([category])
+  @@index([deletedAt, category])
 }
 
 model Customer {
@@ -257,19 +260,19 @@ model Novedad {
 // Fila única (id fijo "main"): producto destacado con precio de oferta y
 // fondo en imagen o video mp4.
 model SuperOferta {
-  id        String   @id @default("main")
-  title     String
-  subtitle  String?
-  price     Int
-  oldPrice  Int?
-  image     String
-  video     String?
-  link      String?
+  id            String   @id @default("main")
+  title         String
+  subtitle      String?
+  price         Int
+  oldPrice      Int?
+  image         String
+  video         String?
+  link          String?
   cartProductId String   @default("p-medallones-1kg")
   cartQuantity  Int      @default(2)
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 // Integrante del equipo de la pollería (empleado), gestionable desde el admin.
@@ -300,4 +303,40 @@ model Staff {
   updatedAt    DateTime  @updatedAt
 
   @@index([active])
+}
+
+// Configuración global consultada por el flujo de WhatsApp en n8n.
+model WhatsappAssistantSettings {
+  id        String   @id @default("main")
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Información adicional que el administrador aporta al contexto del bot.
+model WhatsappKnowledge {
+  id        String   @id @default(cuid())
+  title     String
+  category  String   @default("general")
+  content   String
+  tags      String[] @default([])
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, updatedAt])
+}
+
+// Contactos vistos por n8n. No guarda mensajes ni información sensible.
+model WhatsappContact {
+  id              String    @id @default(cuid())
+  phone           String    @unique
+  name            String?
+  notes           String?
+  assistantPaused Boolean   @default(false)
+  lastSeenAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([lastSeenAt])
 }

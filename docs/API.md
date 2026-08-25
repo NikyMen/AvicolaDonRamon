@@ -114,6 +114,50 @@ Ejemplo de cliente:
   "orders": 28, "spent": 312500, "joined": "..." }
 ```
 
+### Contexto del asistente de WhatsApp
+
+```http
+POST /assistant/context
+Authorization: Bearer TU_API_KEY
+Content-Type: application/json
+
+{ "phone": "+54 9 379 400 0000", "name": "María" }
+```
+
+El endpoint normaliza el teléfono, crea o actualiza el contacto y devuelve el estado del
+asistente junto con conocimiento activo, catálogo, ofertas, sucursales y reglas de entrega.
+No devuelve notas internas ni guarda conversaciones.
+
+```json
+{
+  "data": {
+    "assistant": {
+      "enabled": true,
+      "pausedForPhone": false,
+      "shouldReply": true
+    },
+    "contact": {
+      "id": "...",
+      "phone": "3794000000",
+      "name": "María",
+      "lastSeenAt": "2026-08-24T20:00:00.000Z"
+    },
+    "knowledge": [],
+    "business": {
+      "products": [],
+      "offers": [],
+      "superOffer": null,
+      "branches": [],
+      "delivery": {},
+      "checkout": {}
+    }
+  }
+}
+```
+
+En n8n continuá al modelo únicamente cuando `{{$json.data.assistant.shouldReply}}` sea `true`.
+Si es `false`, finalizá el flujo sin enviar un mensaje automático.
+
 ---
 
 ## Códigos de error
