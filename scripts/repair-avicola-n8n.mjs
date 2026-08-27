@@ -424,7 +424,7 @@ workflow.nodes.push(
     id: ids.webContext,
     name: "Contexto web Don Ramon",
     position: [992, 0],
-    url: "={{ String($vars.AVICOLA_WEB_API_URL || 'http://polleria-web:3000').replace(/\\/$/, '') + '/api/v1/assistant/catalog' }}",
+    url: "={{ String($vars.AVICOLA_WEB_API_URL || '').replace(/\\/$/, '') + '/api/v1/assistant/catalog' }}",
   }),
   ifNode(ids.shouldReply, "Responder Don Ramon", [1200, 0], "={{ $json.data?.assistant?.enabled !== false }}"),
   codeNode(ids.aiInput, "Preparar entrada IA Don Ramon", [1408, 0], prepareAiCode),

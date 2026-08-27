@@ -108,7 +108,7 @@ export async function sendOtp(phone: string, code: string): Promise<OtpDelivery>
 
   if (!url) {
     // OTP_LOG_FALLBACK=true permite operar sin n8n: el código se imprime en
-    // los logs del contenedor (`docker compose logs web`) en vez de enviarse.
+    // los logs de PM2 (`pm2 logs avicola-don-ramon`) en vez de enviarse.
     if (
       process.env.NODE_ENV === "production" &&
       process.env.OTP_LOG_FALLBACK !== "true" &&

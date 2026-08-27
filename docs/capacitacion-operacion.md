@@ -270,7 +270,7 @@ Ahí ves y hacés:
 
 ```
 ┌────────────────────────────────────┐
-│ POLLERÍA ENTRE RÍOS        #1043   │  ← N° de pedido
+│ AVÍCOLA DON RAMÓN          #1043   │  ← N° de pedido
 │ Sale de Sucursal Centro   Parada 4 │  ← ORDEN DE ENTREGA
 │                       Lote A3F91C2B│  ← Qué viaje es
 ├────────────────────────────────────┤

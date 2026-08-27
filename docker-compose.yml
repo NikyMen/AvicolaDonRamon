@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: polleria-db
+    container_name: avicola-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-polleria}
@@ -20,8 +20,8 @@ services:
 
   web:
     build: .
-    image: polleria-entre-rios:latest
-    container_name: polleria-web
+    image: avicola-don-ramon:latest
+    container_name: avicola-web
     restart: unless-stopped
     depends_on:
       db:
