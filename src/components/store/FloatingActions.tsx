@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import { WHATSAPP_SOPORTE_TEXTO, WHATSAPP_SOPORTE_URL } from "@/lib/whatsapp";
 
 const SALUDO =
-  "¡Hola! Soy el asistente de Entre Ríos 🍗 Preguntame por productos, precios, sucursales o envíos.";
+  "¡Hola! Soy el asistente de Avícola Don Ramón 🍗 Preguntame por productos, precios, ubicación o envíos.";
 
 interface Msg {
   role: "user" | "assistant";
@@ -132,13 +132,13 @@ function ChatPanel({ onClose }: { onClose: () => void }) {
   return (
     <div
       role="dialog"
-      aria-label="Asistente de Pollería Entre Ríos"
+      aria-label="Asistente de Avícola Don Ramón"
       className="fixed bottom-56 right-4 z-40 flex h-[26rem] max-h-[calc(100dvh-15rem)] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-xl2 bg-white shadow-card ring-1 ring-black/5 md:bottom-40 md:max-h-[calc(100dvh-11rem)]"
     >
       <header className="flex items-center gap-2 border-b border-black/5 bg-brand-cream px-4 py-3">
         <Sparkles size={18} className="text-brand-red" />
         <div className="flex-1">
-          <p className="text-sm font-semibold text-brand-ink">Asistente Entre Ríos</p>
+          <p className="text-sm font-semibold text-brand-ink">Asistente Don Ramón</p>
           <p className="text-[11px] text-brand-ink/55">Respuestas generadas por IA</p>
         </div>
         <button

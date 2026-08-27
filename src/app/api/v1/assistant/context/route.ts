@@ -2,14 +2,9 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireApiKey } from "@/lib/api/auth";
 import { handleError, ok } from "@/lib/api/respond";
-import { MIN_ENVIO_TOTAL } from "@/lib/geo";
+import { FLAT_DELIVERY_FEE, MIN_ENVIO_TOTAL } from "@/lib/geo";
 import { isValidPhone } from "@/lib/phone";
-import {
-  getDeliverySettings,
-  getSuperOferta,
-  listOffers,
-  listProducts,
-} from "@/lib/repo";
+import { getSuperOferta, listOffers, listProducts } from "@/lib/repo";
 import { sucursales } from "@/lib/sucursales";
 import {
   getWhatsappAssistantEnabled,
@@ -35,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const input = inputSchema.parse(await req.json());
-    const [contact, enabled, knowledge, products, offers, superOferta, delivery] =
+    const [contact, enabled, knowledge, products, offers, superOferta] =
       await Promise.all([
         touchWhatsappContact(input.phone, input.name),
         getWhatsappAssistantEnabled(),
@@ -43,7 +38,6 @@ export async function POST(req: NextRequest) {
         listProducts(),
         listOffers(),
         getSuperOferta(),
-        getDeliverySettings(),
       ]);
 
     return ok({
@@ -75,19 +69,25 @@ export async function POST(req: NextRequest) {
           name,
           address,
           phone,
+          hours: {
+            weekdays: "08:00 a 13:00 y 16:30 a 20:30",
+            saturday: "08:00 a 13:00",
+            winterAfternoon: "17:00 a 20:00",
+            sunday: "09:30 a 13:00",
+          },
         })),
         delivery: {
           onlyHomeDelivery: true,
           minimumOrder: MIN_ENVIO_TOTAL,
-          slots: ["08-12", "17-20"],
-          pricePerKm: delivery.pricePerKm,
-          freeAllSlots: delivery.freeAllSlots,
-          freeSaturday: delivery.freeSaturday,
-          originBranchId: delivery.fixedSucursalId,
+          coverage: "Todas las zonas",
+          pricing: "flat",
+          flatFee: FLAT_DELIVERY_FEE,
+          originBranchId: sucursales[0]?.id ?? null,
         },
         checkout: {
           ordersAreClosedOnWebsite: true,
           whatsappIsForQuestionsAndSupport: true,
+          storeUrl: process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") || null,
         },
       },
     });

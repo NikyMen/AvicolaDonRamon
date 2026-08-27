@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { LocateFixed } from "lucide-react";
 import type { Map as LeafletMap, Marker } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { CORRIENTES_CENTER, isInsideCorrientes } from "@/lib/geo";
+import { PARANA_CENTER, isInsideParana } from "@/lib/geo";
 import { AVISO_MAPA } from "@/lib/entrega";
 import { geocodeDireccion } from "@/lib/geocode";
 
@@ -21,7 +21,7 @@ type Busqueda = "idle" | "buscando" | "encontrada" | "sin-resultado";
  * `searchQuery` (la dirección escrita), la geocodifica con debounce y pre-ubica
  * el pin ahí; el cliente después lo ajusta a mano. El botón "Usar mi ubicación"
  * centra con el GPS del teléfono. Valida en vivo que el punto esté dentro de
- * la zona de reparto (ciudad de Corrientes).
+ * la zona de reparto (ciudad de Paraná).
  */
 export function MapPicker({
   value,
@@ -52,7 +52,7 @@ export function MapPicker({
       if (cancelado || !containerRef.current || mapRef.current) return;
 
       const map = L.map(containerRef.current, {
-        center: value ? [value.lat, value.lng] : [CORRIENTES_CENTER.lat, CORRIENTES_CENTER.lng],
+        center: value ? [value.lat, value.lng] : [PARANA_CENTER.lat, PARANA_CENTER.lng],
         zoom: value ? 16 : 13,
         zoomControl: true,
         attributionControl: false,
@@ -161,7 +161,7 @@ export function MapPicker({
     );
   };
 
-  const fueraDeZona = value ? !isInsideCorrientes(value.lat, value.lng) : false;
+  const fueraDeZona = value ? !isInsideParana(value.lat, value.lng) : false;
 
   return (
     <div className="space-y-2">
@@ -193,7 +193,7 @@ export function MapPicker({
       {gpsError && <p className="text-xs text-brand-red">{gpsError}</p>}
       {fueraDeZona && (
         <p className="rounded-lg bg-brand-red/10 px-3 py-2 text-xs font-semibold text-brand-red">
-          Ese punto está fuera de la ciudad de Corrientes. Por el momento solo entregamos dentro
+          Ese punto está fuera de la ciudad de Paraná. Por el momento solo entregamos dentro
           de la ciudad.
         </p>
       )}

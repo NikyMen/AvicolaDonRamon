@@ -8,9 +8,11 @@ import {
   DEFAULT_ADVANCED_REPORTS_VISIBLE,
   DEFAULT_HIDDEN_MODULES,
   HIDDEN_MODULES_KEY,
+  readHiddenModules,
 } from "@/lib/admin-preferences";
 
 const modules = [
+  ["dashboard", "Dashboard"], ["analitica", "Analítica"],
   ["entregas", "Entregas"], ["envios", "Envios"], ["ofertas", "Ofertas"],
   ["clientes", "Clientes"], ["cupones", "Cupones y promos"],
 ];
@@ -21,11 +23,7 @@ export function ConfigSettings() {
 
   useEffect(() => {
     try {
-      const storedModules = localStorage.getItem(HIDDEN_MODULES_KEY);
-      if (storedModules) {
-        const value = JSON.parse(storedModules);
-        if (Array.isArray(value)) setHidden(value);
-      }
+      setHidden(readHiddenModules());
       const storedAdvanced = localStorage.getItem(ADVANCED_REPORTS_KEY);
       setAdvanced(
         storedAdvanced === null ? DEFAULT_ADVANCED_REPORTS_VISIBLE : storedAdvanced === "true"

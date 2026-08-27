@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description:
     "Sistema de gestión para Avícola Don Ramón: productos, precios y stock.",
   icons: {
-    icon: "/logo.jpg",
+    icon: "/favicon.svg",
     apple: "/logo.jpg",
   },
 };

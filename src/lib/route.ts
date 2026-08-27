@@ -1,4 +1,4 @@
-import { distanceKm, CORRIENTES_CENTER } from "./geo";
+import { distanceKm, PARANA_CENTER } from "./geo";
 
 /**
  * Optimización de la ruta de reparto.
@@ -74,4 +74,4 @@ export function googleMapsPointUrl(p: GeoPoint): string {
 }
 
 /** Origen por defecto de la ruta si una sucursal no tuviera coordenadas. */
-export const DEFAULT_ROUTE_ORIGIN: GeoPoint = CORRIENTES_CENTER;
+export const DEFAULT_ROUTE_ORIGIN: GeoPoint = PARANA_CENTER;

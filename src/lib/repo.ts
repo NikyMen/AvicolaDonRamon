@@ -39,7 +39,7 @@ import { eventForStatus, notifyDeliveryReassignment, notifyOrderEvent } from "./
 import { sucursales } from "./sucursales";
 import { optimizeRoute, googleMapsRouteUrl, DEFAULT_ROUTE_ORIGIN } from "./route";
 import { versionImageUrl } from "./image-url";
-import { distanceKm } from "./geo";
+import { distanceKm, FLAT_DELIVERY_FEE } from "./geo";
 
 /** Se lanza cuando una operación de escritura necesita base de datos y no hay. */
 export class NoDatabaseError extends Error {
@@ -165,10 +165,10 @@ function mapOrder(o: DbOrder & { items: DbOrderItem[] }): Order {
 }
 
 const DEFAULT_DELIVERY_SETTINGS: DeliverySettings = {
-  pricePerKm: 500,
+  pricePerKm: 0,
   freeAllSlots: false,
   freeSaturday: false,
-  fixedSucursalId: "maipu",
+  fixedSucursalId: "don-ramon",
 };
 
 function mapDeliverySettings(settings: DbDeliverySettings): DeliverySettings {
@@ -178,12 +178,6 @@ function mapDeliverySettings(settings: DbDeliverySettings): DeliverySettings {
     freeSaturday: settings.freeSaturday,
     fixedSucursalId: settings.fixedSucursalId,
   };
-}
-
-function isSaturdayDelivery(date?: string): boolean {
-  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay() === 6;
 }
 
 function deliveryOrigin(settings: DeliverySettings) {
@@ -236,15 +230,9 @@ export async function quoteDelivery(input: {
   const settings = await getDeliverySettings();
   const origin = deliveryOrigin(settings);
   const distance = distanceKm({ lat: origin.lat, lng: origin.lng }, { lat: input.lat, lng: input.lng });
-  let freeReason: string | undefined;
-  if (settings.freeAllSlots) freeReason = "Envio gratis configurado";
-  else if (settings.freeSaturday && isSaturdayDelivery(input.deliveryDate)) {
-    freeReason = "Envio gratis por entrega de sabado";
-  }
   return {
     distanceKm: Number(distance.toFixed(2)),
-    fee: freeReason ? 0 : Math.round(distance * settings.pricePerKm),
-    freeReason,
+    fee: FLAT_DELIVERY_FEE,
     originSucursalId: origin.id,
     originName: origin.name,
   };

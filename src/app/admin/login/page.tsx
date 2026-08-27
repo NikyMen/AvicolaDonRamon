@@ -21,7 +21,7 @@ export default async function AdminLoginPage({
             P
           </div>
           <h1 className="text-xl font-bold text-brand-ink">Panel de administración</h1>
-          <p className="text-sm text-brand-ink/55">Pollería Entre Ríos</p>
+          <p className="text-sm text-brand-ink/55">Avícola Don Ramón</p>
         </div>
         <AdminLoginForm next={next ?? "/admin"} />
       </div>

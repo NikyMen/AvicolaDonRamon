@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as LeafletMap, LayerGroup } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { CORRIENTES_CENTER } from "@/lib/geo";
+import { PARANA_CENTER } from "@/lib/geo";
 import type { Order } from "@/lib/types";
 
 const statusColor: Record<Order["status"], string> = {
@@ -162,7 +162,7 @@ export function OrdersHeatMap({
       L.DomEvent.disableScrollPropagation(containerRef.current);
       L.DomEvent.disableClickPropagation(containerRef.current);
       const map = L.map(containerRef.current, {
-        center: [CORRIENTES_CENTER.lat, CORRIENTES_CENTER.lng],
+        center: [PARANA_CENTER.lat, PARANA_CENTER.lng],
         zoom: 12,
         attributionControl: false,
       });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,10 +15,11 @@ import {
   Sparkles,
   LineChart,
   Bell,
-  Search,
   Menu,
   X,
   Settings,
+  ChevronDown,
+  Store,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -28,23 +29,47 @@ import {
   ADMIN_PREFERENCES_EVENT,
   DEFAULT_HIDDEN_MODULES,
   HIDDEN_MODULES_KEY,
+  readHiddenModules,
 } from "@/lib/admin-preferences";
 
 // `perm` = clave del módulo (PERM_MODULES). Sin `perm` el ítem es visible
 // para cualquier sesión de panel (ej. Dashboard).
 const nav = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/entregas", label: "Entregas", icon: Truck, perm: "entregas" },
-  { href: "/admin/envios", label: "Envios", icon: Route, perm: "envios" },
-  { href: "/admin/productos", label: "Productos", icon: Package, perm: "productos" },
-  { href: "/admin/clientes", label: "Clientes", icon: Users, perm: "clientes" },
-  { href: "/admin/equipo", label: "Equipo", icon: UserCog, perm: "equipo" },
-  { href: "/admin/ofertas", label: "Ofertas", icon: Tag, perm: "ofertas" },
-  { href: "/admin/cupones", label: "Cupones y promos", icon: TicketPercent, perm: "cupones" },
-  { href: "/admin/reportes", label: "IA y reportes", icon: Sparkles, perm: "reportes" },
-  { href: "/admin/analitica", label: "Analítica", icon: LineChart, perm: "analitica" },
-  { href: "/admin/config", label: "Configuración", icon: Settings },
-  { href: "/admin/asistente", label: "Asistente WhatsApp", icon: Sparkles, perm: "asistente" },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, hideKey: "dashboard" },
+  { href: "/admin/entregas", label: "Entregas", icon: Truck, perm: "entregas", hideKey: "entregas" },
+  { href: "/admin/envios", label: "Envios", icon: Route, perm: "envios", hideKey: "envios" },
+  { href: "/admin/productos", label: "Productos", icon: Package, perm: "productos", hideKey: "productos" },
+  { href: "/admin/clientes", label: "Clientes", icon: Users, perm: "clientes", hideKey: "clientes" },
+  { href: "/admin/equipo", label: "Equipo", icon: UserCog, perm: "equipo", hideKey: "equipo" },
+  { href: "/admin/ofertas", label: "Ofertas", icon: Tag, perm: "ofertas", hideKey: "ofertas" },
+  { href: "/admin/cupones", label: "Cupones y promos", icon: TicketPercent, perm: "cupones", hideKey: "cupones" },
+  { href: "/admin/reportes", label: "IA y reportes", icon: Sparkles, perm: "reportes", hideKey: "reportes" },
+  { href: "/admin/analitica", label: "Analítica", icon: LineChart, perm: "analitica", hideKey: "analitica" },
+  { href: "/admin/asistente", label: "Asistente WhatsApp", icon: Sparkles, perm: "asistente", hideKey: "asistente" },
+];
+
+const notifications = [
+  {
+    id: 1,
+    title: "Resumen del día disponible",
+    description: "Revisá la actividad reciente del negocio.",
+    time: "Ahora",
+    href: "/admin",
+  },
+  {
+    id: 2,
+    title: "Configuración para revisar",
+    description: "Comprobá que los datos de la tienda estén actualizados.",
+    time: "Hoy",
+    href: "/admin/config",
+  },
+  {
+    id: 3,
+    title: "Panel actualizado",
+    description: "Ya tenés disponibles las últimas herramientas de gestión.",
+    time: "Hoy",
+    href: "/admin",
+  },
 ];
 
 function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () => void }) {
@@ -54,13 +79,7 @@ function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () =>
   useEffect(() => {
     const syncHiddenModules = () => {
       try {
-        const stored = localStorage.getItem(HIDDEN_MODULES_KEY);
-        if (!stored) {
-          setHiddenModules([...DEFAULT_HIDDEN_MODULES]);
-          return;
-        }
-        const value = JSON.parse(stored);
-        setHiddenModules(Array.isArray(value) ? value : [...DEFAULT_HIDDEN_MODULES]);
+        setHiddenModules(readHiddenModules());
       } catch {}
     };
     try {
@@ -77,7 +96,7 @@ function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () =>
   }, []);
 
   const items = nav.filter(
-    (item) => (!item.perm || hasPermission(perms, item.perm)) && !hiddenModules.includes(item.perm ?? "")
+    (item) => (!item.perm || hasPermission(perms, item.perm)) && !hiddenModules.includes(item.hideKey)
   );
 
   return (
@@ -105,7 +124,23 @@ function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () =>
         })}
       </nav>
       <div className="space-y-1 border-t border-white/10 p-3">
-        <LogoutButton className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/65 hover:bg-white/10 hover:text-white" />
+        <Link
+          href="/admin/config"
+          onClick={onNavigate}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
+            pathname.startsWith("/admin/config")
+              ? "bg-brand-red text-white"
+              : "text-white/65 hover:bg-white/10 hover:text-white"
+          )}
+        >
+          <Settings size={18} />
+          Configuración
+        </Link>
+        <LogoutButton
+          redirectTo="/admin/login"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/65 hover:bg-white/10 hover:text-white"
+        />
       </div>
     </>
   );
@@ -123,6 +158,42 @@ export function AdminChrome({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [unreadIds, setUnreadIds] = useState(() => notifications.map(({ id }) => id));
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const closeMenus = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!notificationsRef.current?.contains(target)) setNotificationsOpen(false);
+      if (!accountRef.current?.contains(target)) setAccountOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNotificationsOpen(false);
+        setAccountOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", closeMenus);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeMenus);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  const toggleNotifications = () => {
+    setNotificationsOpen((current) => !current);
+    setAccountOpen(false);
+  };
+
+  const toggleAccount = () => {
+    setAccountOpen((current) => !current);
+    setNotificationsOpen(false);
+  };
 
   return (
     <div className="flex min-h-screen bg-[#f1f0ee]">
@@ -159,38 +230,149 @@ export function AdminChrome({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar */}
-        <header className="sticky top-0 z-[60] flex items-center justify-between gap-4 border-b border-black/5 bg-white px-4 py-3 md:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-2 md:flex-none">
-            <button
-              onClick={() => setOpen(true)}
-              aria-label="Abrir menú"
-              className="shrink-0 rounded-lg p-2 text-brand-ink/60 hover:bg-black/5 md:hidden"
-            >
-              <Menu size={20} />
-            </button>
-            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg bg-brand-cream px-3 py-2 text-sm text-brand-ink/50 md:w-80 md:flex-none">
-              <Search size={16} className="shrink-0" />
-              <input
-                placeholder="Buscar pedidos, productos, clientes…"
-                className="w-full bg-transparent outline-none placeholder:text-brand-ink/40"
-              />
-            </div>
-          </div>
+        <header className="sticky top-0 z-[60] flex items-center justify-end gap-2 border-b border-black/5 bg-white px-4 py-3 md:gap-3 md:px-6">
+          <button
+            onClick={() => setOpen(true)}
+            aria-label="Abrir menú"
+            className="mr-auto shrink-0 rounded-lg p-2 text-brand-ink/60 hover:bg-black/5 md:hidden"
+          >
+            <Menu size={20} />
+          </button>
           <div className="flex items-center gap-3">
-            <button className="relative rounded-lg p-2 text-brand-ink/60 hover:bg-black/5">
-              <Bell size={20} />
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand-red" />
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-sm font-bold text-white">
-                {name.charAt(0).toUpperCase()}
-              </div>
-              <div className="hidden text-sm leading-tight sm:block">
-                <p className="font-semibold text-brand-ink">{name}</p>
-                <p className="text-xs text-brand-ink/50">
-                  {isSuperAdmin ? "Administrador" : "Empleado"} · Entre Ríos
-                </p>
-              </div>
+            <div ref={notificationsRef} className="relative">
+              <button
+                onClick={toggleNotifications}
+                aria-label={`Notificaciones${unreadIds.length ? `, ${unreadIds.length} sin leer` : ""}`}
+                aria-expanded={notificationsOpen}
+                aria-controls="admin-notifications"
+                className="relative rounded-lg p-2 text-brand-ink/60 transition hover:bg-black/5 hover:text-brand-ink"
+              >
+                <Bell size={20} />
+                {unreadIds.length > 0 && (
+                  <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-bold leading-none text-white">
+                    {unreadIds.length}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div
+                  id="admin-notifications"
+                  className="absolute right-0 top-full mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-black/10 bg-white shadow-xl"
+                >
+                  <div className="flex items-center justify-between border-b border-black/5 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-bold text-brand-ink">Notificaciones</p>
+                      <p className="text-xs text-brand-ink/50">
+                        {unreadIds.length ? `${unreadIds.length} sin leer` : "Todo al día"}
+                      </p>
+                    </div>
+                    {unreadIds.length > 0 && (
+                      <button
+                        onClick={() => setUnreadIds([])}
+                        className="text-xs font-semibold text-brand-red hover:underline"
+                      >
+                        Marcar como leídas
+                      </button>
+                    )}
+                  </div>
+                  <div className="divide-y divide-black/5">
+                    {notifications.map((notification) => {
+                      const unread = unreadIds.includes(notification.id);
+                      return (
+                        <Link
+                          key={notification.id}
+                          href={notification.href}
+                          onClick={() => {
+                            setUnreadIds((current) =>
+                              current.filter((id) => id !== notification.id)
+                            );
+                            setNotificationsOpen(false);
+                          }}
+                          className="flex gap-3 px-4 py-3 transition hover:bg-brand-cream/70"
+                        >
+                          <span
+                            className={cn(
+                              "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                              unread ? "bg-brand-red" : "bg-black/15"
+                            )}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold text-brand-ink">
+                              {notification.title}
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-5 text-brand-ink/55">
+                              {notification.description}
+                            </span>
+                            <span className="mt-1 block text-[11px] font-medium text-brand-ink/40">
+                              {notification.time}
+                            </span>
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div ref={accountRef} className="relative">
+              <button
+                onClick={toggleAccount}
+                aria-label="Abrir menú de usuario"
+                aria-expanded={accountOpen}
+                aria-controls="admin-account-menu"
+                className="flex items-center gap-2 rounded-xl px-1.5 py-1 transition hover:bg-black/5 sm:px-2"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-sm font-bold text-white">
+                  {name.charAt(0).toUpperCase()}
+                </div>
+                <div className="hidden text-left text-sm leading-tight sm:block">
+                  <p className="font-semibold text-brand-ink">{name}</p>
+                  <p className="text-xs text-brand-ink/50">
+                    {isSuperAdmin ? "Administrador" : "Empleado"} · Entre Ríos
+                  </p>
+                </div>
+                <ChevronDown
+                  size={16}
+                  className={cn(
+                    "text-brand-ink/45 transition-transform",
+                    accountOpen && "rotate-180"
+                  )}
+                />
+              </button>
+
+              {accountOpen && (
+                <div
+                  id="admin-account-menu"
+                  className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-black/10 bg-white p-1.5 shadow-xl"
+                >
+                  <div className="border-b border-black/5 px-3 py-2 sm:hidden">
+                    <p className="text-sm font-semibold text-brand-ink">{name}</p>
+                    <p className="text-xs text-brand-ink/50">
+                      {isSuperAdmin ? "Administrador" : "Empleado"} · Entre Ríos
+                    </p>
+                  </div>
+                  <Link
+                    href="/"
+                    onClick={() => setAccountOpen(false)}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-ink/70 transition hover:bg-brand-cream hover:text-brand-ink"
+                  >
+                    <Store size={18} /> Ir a la tienda
+                  </Link>
+                  <Link
+                    href="/admin/config"
+                    onClick={() => setAccountOpen(false)}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-ink/70 transition hover:bg-brand-cream hover:text-brand-ink"
+                  >
+                    <Settings size={18} /> Configuración
+                  </Link>
+                  <LogoutButton
+                    redirectTo="/admin/login"
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-red transition hover:bg-brand-red/5"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </header>

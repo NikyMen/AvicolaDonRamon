@@ -10,7 +10,7 @@ export function Footer() {
         <div className="col-span-1">
           <Logo dark />
           <p className="mt-3 text-sm leading-relaxed text-white/60">
-            El mejor pollo de Corrientes, fresco todos los días. Hacé tu pedido desde la web y
+            Productos frescos en Paraná todos los días. Hacé tu pedido desde la web y
             recibilo a domicilio.
           </p>
           <div className="mt-4 flex gap-3">
@@ -35,16 +35,9 @@ export function Footer() {
         </div>
 
         <div>
-          <h4 className="mb-3 font-semibold text-white">Sucursales</h4>
+          <h4 className="mb-3 font-semibold text-white">Dónde estamos</h4>
           <ul className="space-y-1.5 text-sm">
-            <li className="flex items-center gap-2"><MapPin size={15} /> Junin 2198</li>
-            <li className="flex items-center gap-2"><MapPin size={15} /> Sarmiento y La Pampa</li>
-            <li className="flex items-center gap-2"><MapPin size={15} /> Av. Cazadores Correntinos 3038</li>
-            <li className="flex items-center gap-2"><MapPin size={15} /> Av. Independencia 5328</li>
-            <li className="flex items-center gap-2"><MapPin size={15} /> Av. Independencia 3540</li>
-            <li className="flex items-center gap-2"><MapPin size={15} /> Calle Gutemberg 1670</li>
-            <li className="flex items-center gap-2"><MapPin size={15} /> Av. Libertad 5279</li>
-            <li className="flex items-center gap-2"><MapPin size={15} /> Av. Maipú 7185</li>
+            <li className="flex items-center gap-2"><MapPin size={15} /> Av. Las Américas 4117, Paraná</li>
             <li className="mt-2 flex items-center gap-2">
               <Phone size={15} /> Consultas: WhatsApp {WHATSAPP_VISIBLE}
             </li>
@@ -54,14 +47,14 @@ export function Footer() {
         <div>
           <h4 className="mb-3 font-semibold text-white">Horarios</h4>
           <ul className="space-y-2 text-sm">
-            <li className="flex items-center gap-2"><Clock size={15} /> Lun a Sáb: 8:30 – 13:00</li>
-            <li className="flex items-center gap-2"><Clock size={15} /> y 17:30 – 21:00</li>
-            <li className="text-white/50">Domingo cerrado</li>
+            <li className="flex items-center gap-2"><Clock size={15} /> Lun a Vie: 8:00–13:00 y 16:30–20:30</li>
+            <li className="flex items-center gap-2"><Clock size={15} /> Sábado: 8:00–13:00</li>
+            <li className="flex items-center gap-2"><Clock size={15} /> Domingo: 9:30–13:00</li>
           </ul>
         </div>
       </div>
       <div className="border-t border-white/10 py-4 text-center text-xs text-white/50">
-        © {new Date().getFullYear()} Pollería Entre Ríos · pollelriaentrerios.com.ar
+        © {new Date().getFullYear()} Avícola Don Ramón
       </div>
     </footer>
   );

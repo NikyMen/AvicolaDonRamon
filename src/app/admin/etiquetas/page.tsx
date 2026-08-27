@@ -11,7 +11,7 @@ import type { Order } from "@/lib/types";
 import { PrintButton } from "./PrintButton";
 
 export const metadata: Metadata = {
-  title: "Etiquetas de envío · Pollería Entre Ríos",
+  title: "Etiquetas de envío · Avícola Don Ramón",
   robots: { index: false },
 };
 
@@ -132,7 +132,7 @@ export default async function EtiquetasPage({
                 <div className="flex items-start justify-between gap-2 border-b-2 border-neutral-800 pb-2">
                   <div>
                     <p className="text-[3.2mm] font-extrabold uppercase tracking-wide">
-                      Pollería Entre Ríos
+                      Avícola Don Ramón
                     </p>
                     <p className="text-[2.6mm] text-neutral-500">
                       {origen ? `Sale de ${origen}` : "Envío a domicilio"}

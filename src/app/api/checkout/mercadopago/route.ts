@@ -14,7 +14,7 @@ import {
   isRuntimeProductArchived,
 } from "@/lib/repo";
 import { hasDatabase } from "@/lib/prisma";
-import { isInsideCorrientes, MIN_ENVIO_TOTAL } from "@/lib/geo";
+import { isInsideParana, MIN_ENVIO_TOTAL } from "@/lib/geo";
 import {
   DELIVERY_SLOTS,
   deliveryEstimateLabel,
@@ -153,9 +153,9 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (!isInsideCorrientes(body.lat, body.lng)) {
+  if (!isInsideParana(body.lat, body.lng)) {
     return NextResponse.json(
-      { error: "Por el momento solo hacemos envíos dentro de la ciudad de Corrientes." },
+      { error: "Por el momento solo hacemos envíos dentro de la ciudad de Paraná." },
       { status: 400 }
     );
   }

@@ -52,10 +52,7 @@ export function SideMenu() {
         </nav>
         <div className="space-y-2 border-t border-black/5 px-4 py-4 text-sm text-brand-ink/70">
           <p className="flex items-center gap-2">
-            <MapPin size={16} className="text-brand-red" /> Junin 2198, Corrientes
-          </p>
-          <p className="flex items-center gap-2">
-            <MapPin size={16} className="text-brand-red" /> Sarmiento y La Pampa
+            <MapPin size={16} className="text-brand-red" /> Av. Las Américas 4117, Paraná
           </p>
           <p className="flex items-center gap-2">
             <Phone size={16} className="text-brand-red" /> Consultas: WhatsApp {WHATSAPP_VISIBLE}

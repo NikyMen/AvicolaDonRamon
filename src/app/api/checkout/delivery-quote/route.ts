@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { isInsideCorrientes } from "@/lib/geo";
+import { isInsideParana } from "@/lib/geo";
 import { quoteDelivery } from "@/lib/repo";
 
 export const runtime = "nodejs";
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { lat, lng, fechaEntrega } = parsed.data;
-  if (!isInsideCorrientes(lat, lng)) {
+  if (!isInsideParana(lat, lng)) {
     return NextResponse.json(
       { error: "El punto esta fuera de la zona de envio." },
       { status: 400 }

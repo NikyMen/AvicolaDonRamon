@@ -4,8 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 
-/** Botón que cierra la sesión y redirige al login. */
-export function LogoutButton({ className }: { className?: string }) {
+/** Botón que cierra la sesión y redirige al login correspondiente. */
+export function LogoutButton({
+  className,
+  redirectTo = "/ingresar",
+}: {
+  className?: string;
+  redirectTo?: string;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -13,7 +19,7 @@ export function LogoutButton({ className }: { className?: string }) {
     setLoading(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      router.replace("/ingresar");
+      router.replace(redirectTo);
       router.refresh();
     } finally {
       setLoading(false);

@@ -1,30 +1,27 @@
 /**
- * Geografía del reparto: por ahora solo se entrega dentro de la ciudad de
- * Corrientes (capital). La validación corre en el cliente (para avisar al
- * marcar el punto) y de nuevo en el servidor (no se confía en el navegador).
+ * Geografía del reparto de Avícola Don Ramón en Paraná. La validación
+ * corre en el cliente y nuevamente en el servidor.
  */
 
-/** Centro aproximado de la ciudad de Corrientes. */
-export const CORRIENTES_CENTER = { lat: -27.4692, lng: -58.8306 };
+/** Centro aproximado de Paraná. */
+export const PARANA_CENTER = { lat: -31.7413, lng: -60.5115 };
 
-/** Monto mínimo de compra para poder cerrar el pedido. */
-export const MIN_ENVIO_TOTAL = 50_000;
+/** No se informó un monto mínimo de compra. */
+export const MIN_ENVIO_TOTAL = 0;
 
-/**
- * Caja que encierra el ejido urbano de Corrientes capital.
- * El límite oeste (-58.88) deja afuera la orilla chaqueña del Paraná
- * (Barranqueras/Resistencia), que de otro modo entraría por distancia.
- * También se usa como viewbox para geocodificar direcciones (lib/geocode).
- */
-export const CORRIENTES_BOUNDS = {
-  latMin: -27.6,
-  latMax: -27.4,
-  lngMin: -58.88,
-  lngMax: -58.7,
+/** Importe único de envío para todas las zonas habilitadas. */
+export const FLAT_DELIVERY_FEE = 2_000;
+
+/** Caja amplia del ejido urbano de Paraná, usada también por Nominatim. */
+export const PARANA_BOUNDS = {
+  latMin: -31.9,
+  latMax: -31.65,
+  lngMin: -60.65,
+  lngMax: -60.4,
 };
 
 /** Radio máximo (km) desde el centro; refuerza la caja en las esquinas. */
-const MAX_KM = 14;
+const MAX_KM = 18;
 
 /** Distancia haversine en km entre dos puntos. */
 export function distanceKm(
@@ -41,10 +38,10 @@ export function distanceKm(
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/** ¿El punto está dentro de la zona de reparto (ciudad de Corrientes)? */
-export function isInsideCorrientes(lat: number, lng: number): boolean {
+/** ¿El punto está dentro de la zona de reparto (ciudad de Paraná)? */
+export function isInsideParana(lat: number, lng: number): boolean {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
-  if (lat < CORRIENTES_BOUNDS.latMin || lat > CORRIENTES_BOUNDS.latMax) return false;
-  if (lng < CORRIENTES_BOUNDS.lngMin || lng > CORRIENTES_BOUNDS.lngMax) return false;
-  return distanceKm({ lat, lng }, CORRIENTES_CENTER) <= MAX_KM;
+  if (lat < PARANA_BOUNDS.latMin || lat > PARANA_BOUNDS.latMax) return false;
+  if (lng < PARANA_BOUNDS.lngMin || lng > PARANA_BOUNDS.lngMax) return false;
+  return distanceKm({ lat, lng }, PARANA_CENTER) <= MAX_KM;
 }

@@ -1,4 +1,4 @@
-# 🔌 API Pollería Entre Ríos — Referencia para n8n
+# 🔌 API Avícola Don Ramón — Referencia para n8n
 
 API REST para que el **bot de consultoría digital en n8n** consuma el catálogo,
 tome pedidos y gestione clientes.
@@ -121,7 +121,7 @@ POST /assistant/context
 Authorization: Bearer TU_API_KEY
 Content-Type: application/json
 
-{ "phone": "+54 9 379 400 0000", "name": "María" }
+{ "phone": "+54 9 343 400 0000", "name": "María" }
 ```
 
 El endpoint normaliza el teléfono, crea o actualiza el contacto y devuelve el estado del
@@ -157,6 +157,15 @@ No devuelve notas internas ni guarda conversaciones.
 
 En n8n continuá al modelo únicamente cuando `{{$json.data.assistant.shouldReply}}` sea `true`.
 Si es `false`, finalizá el flujo sin enviar un mensaje automático.
+
+Para el workflow comercial de solo lectura también está disponible:
+
+```http
+GET /assistant/catalog
+```
+
+Devuelve catálogo, stock, ofertas, dirección, horarios, checkout y envío fijo de $2.000.
+No expone contactos, notas ni conocimiento interno.
 
 ---
 

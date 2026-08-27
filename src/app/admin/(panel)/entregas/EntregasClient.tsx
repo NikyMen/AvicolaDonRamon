@@ -64,7 +64,7 @@ function etiquetasUrl(ids: string[]): string {
 
 export function EntregasClient({ sucursales, repartidores, envios, enCurso = 0 }: Props) {
   const [sucursalId, setSucursalId] = useState(
-    sucursales.find((s) => s.id === "maipu")?.id ?? sucursales[0]?.id ?? ""
+    sucursales.find((s) => s.id === "don-ramon")?.id ?? sucursales[0]?.id ?? ""
   );
   const [repartidorId, setRepartidorId] = useState(repartidores[0]?.id ?? "");
   // Por defecto entran todos a la ruta; el encargado destilda los que no salen.

@@ -37,7 +37,7 @@ El webhook recibe:
 {
   "phone": "+5491111111111",
   "code": "1234",
-  "message": "Tu código de acceso a Pollería Entre Ríos es 1234. Vence en 5 minutos. No lo compartas con nadie."
+  "message": "Tu código de acceso a Avícola Don Ramón es 1234. Vence en 5 minutos. No lo compartas con nadie."
 }
 ```
 

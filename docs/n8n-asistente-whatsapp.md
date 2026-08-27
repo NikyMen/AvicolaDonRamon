@@ -1,5 +1,21 @@
 # Asistente inteligente de WhatsApp con n8n
 
+## Workflow productivo de Kommo
+
+El workflow `Avicola Don Ramon` consulta en cada mensaje:
+
+```http
+GET {{$vars.AVICOLA_WEB_API_URL}}/api/v1/assistant/catalog
+```
+
+Configurá `AVICOLA_WEB_API_URL` en las variables de n8n con la URL pública de la tienda,
+sin la ruta `/api/v1`. El endpoint es de solo lectura y devuelve únicamente catálogo,
+stock, ofertas, dirección, horarios, checkout y envío fijo de $2.000.
+
+La respuesta a WhatsApp se escribe en Kommo y se envía mediante un Salesbot activo de tipo
+`regular`. La credencial `AvicolaDonRamonKommo` debe autorizar correctamente la cuenta
+`contactoavicoladonramoncomar.kommo.com`.
+
 ## Consulta de contexto
 
 Antes de generar cada respuesta, agregá un nodo **HTTP Request**:

@@ -16,7 +16,7 @@ import {
 import { useCart } from "@/store/cart";
 import { useUI } from "@/store/ui";
 import { formatARS } from "@/lib/format";
-import { isInsideCorrientes, MIN_ENVIO_TOTAL } from "@/lib/geo";
+import { isInsideParana, MIN_ENVIO_TOTAL } from "@/lib/geo";
 import {
   AVISO_DIRECCION,
   estimatedDeliveryOptions,
@@ -129,7 +129,7 @@ export function CartDrawer() {
   const nombreValido = nombre.trim().length >= 2;
   const telefonoValido = telefono.replace(/\D/g, "").length >= 6;
   const direccionValida = direccion.trim().length >= 4;
-  const dentroDeZona = punto !== null && isInsideCorrientes(punto.lat, punto.lng);
+  const dentroDeZona = punto !== null && isInsideParana(punto.lat, punto.lng);
   const alcanzaMinimo = subtotal >= MIN_ENVIO_TOTAL;
   const faltaParaMinimo = Math.max(0, MIN_ENVIO_TOTAL - subtotal);
 
@@ -187,7 +187,7 @@ export function CartDrawer() {
         : !direccionValida || !punto
           ? "Completá dirección y mapa"
           : !dentroDeZona
-            ? "Punto fuera de Corrientes"
+            ? "Punto fuera de Paraná"
             : !puntoConfirmado
               ? "Confirmá la ubicación del mapa"
               : opcionEntregaSeleccionada === null

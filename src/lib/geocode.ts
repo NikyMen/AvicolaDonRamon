@@ -2,10 +2,10 @@
  * Geocodificación de direcciones con Nominatim (OpenStreetMap, sin API key,
  * igual que las tiles del mapa). Se usa en el checkout para pre-ubicar el pin
  * según la dirección que escribe el cliente. Las búsquedas quedan acotadas a
- * la caja de Corrientes capital: una dirección de otra ciudad no devuelve nada.
+ * la caja de Paraná: una dirección de otra ciudad no devuelve nada.
  */
 
-import { CORRIENTES_BOUNDS } from "@/lib/geo";
+import { PARANA_BOUNDS } from "@/lib/geo";
 
 export interface GeocodeResult {
   lat: number;
@@ -18,10 +18,10 @@ const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
 /** Formato viewbox de Nominatim: lng-izq, lat-arriba, lng-der, lat-abajo. */
 const VIEWBOX = [
-  CORRIENTES_BOUNDS.lngMin,
-  CORRIENTES_BOUNDS.latMax,
-  CORRIENTES_BOUNDS.lngMax,
-  CORRIENTES_BOUNDS.latMin,
+  PARANA_BOUNDS.lngMin,
+  PARANA_BOUNDS.latMax,
+  PARANA_BOUNDS.lngMax,
+  PARANA_BOUNDS.latMin,
 ].join(",");
 
 async function buscar(
@@ -51,8 +51,8 @@ async function buscar(
 }
 
 /**
- * Busca una dirección escrita libre ("Blas Parera 1749") dentro de Corrientes
- * capital. Devuelve null si no hay resultado dentro de la zona de reparto.
+ * Busca una dirección escrita libre dentro de Paraná. Devuelve null si no hay
+ * resultado dentro de la zona de reparto.
  */
 export async function geocodeDireccion(
   direccion: string,
@@ -64,10 +64,10 @@ export async function geocodeDireccion(
   if (!q) return null;
 
   // Primer intento: búsqueda libre con la ciudad como contexto.
-  const libre = await buscar({ q: `${q}, Corrientes, Argentina` }, signal);
+  const libre = await buscar({ q: `${q}, Paraná, Entre Ríos, Argentina` }, signal);
   if (libre) return libre;
 
   // Segundo intento: búsqueda estructurada por calle, que suele resolver
   // mejor el patrón "calle + altura" cuando la libre falla.
-  return buscar({ street: q, city: "Corrientes", country: "Argentina" }, signal);
+  return buscar({ street: q, city: "Paraná", state: "Entre Ríos", country: "Argentina" }, signal);
 }

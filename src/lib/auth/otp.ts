@@ -96,7 +96,7 @@ export type OtpDelivery = "whatsapp" | "console";
 
 export async function sendOtp(phone: string, code: string): Promise<OtpDelivery> {
   const url = process.env.OTP_WHATSAPP_WEBHOOK_URL;
-  const message = `Tu código de acceso a Pollería Entre Ríos es ${code}. Vence en 5 minutos. No lo compartas con nadie.`;
+  const message = `Tu código de acceso a Avícola Don Ramón es ${code}. Vence en 5 minutos. No lo compartas con nadie.`;
   const shouldLogCode =
     process.env.OTP_LOG_CODE === "true" ||
     process.env.OTP_LOG_FALLBACK === "true" ||
