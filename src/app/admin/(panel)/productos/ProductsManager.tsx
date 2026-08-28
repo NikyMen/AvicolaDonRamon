@@ -41,7 +41,7 @@ export function ProductsManager({ products }: { products: Product[] }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-ink">Productos</h1>
+          <h1 className="text-2xl font-bold text-brand-ink">Stock</h1>
           <p className="text-sm text-brand-ink/55">{products.length} productos en el catálogo</p>
         </div>
         <button className="btn-primary" onClick={() => setEditing(undefined)}>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
+import { ConsultoriaDigitalLogo } from "@/components/ConsultoriaDigitalLogo";
 import { AdminLoginForm } from "./AdminLoginForm";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function AdminLoginPage({
           <p className="text-sm text-brand-ink/55">Avícola Don Ramón</p>
         </div>
         <AdminLoginForm next={next ?? "/admin"} />
+        <ConsultoriaDigitalLogo className="mt-7 justify-center border-t border-black/5 pt-5" />
       </div>
     </div>
   );
