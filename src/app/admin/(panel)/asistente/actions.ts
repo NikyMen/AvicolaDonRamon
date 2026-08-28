@@ -36,13 +36,18 @@ function failure(error: unknown): AssistantActionState {
 
 function refreshAssistant() {
   revalidatePath("/admin/asistente");
+  revalidatePath("/admin/conocimiento");
+}
+
+async function requireKnowledgePermission(): Promise<string | null> {
+  return assertPerm("conocimiento");
 }
 
 export async function saveKnowledgeAction(
   _previous: AssistantActionState,
   formData: FormData
 ): Promise<AssistantActionState> {
-  const denied = await requireAssistantPermission();
+  const denied = await requireKnowledgePermission();
   if (denied) return { error: denied };
 
   const id = String(formData.get("id") ?? "").trim() || undefined;
@@ -91,7 +96,7 @@ export async function normalizeConversationAction(
   rawConversation: string,
   desiredResponse: string
 ): Promise<NormalizeConversationState> {
-  const denied = await requireAssistantPermission();
+  const denied = await requireKnowledgePermission();
   if (denied) return { error: denied };
   const raw = rawConversation.trim();
   if (!raw) return { error: "Pegá una conversación o seleccioná al menos una captura." };
@@ -113,7 +118,7 @@ export async function toggleKnowledgeAction(
   id: string,
   active: boolean
 ): Promise<AssistantActionState> {
-  const denied = await requireAssistantPermission();
+  const denied = await requireKnowledgePermission();
   if (denied) return { error: denied };
   try {
     await toggleWhatsappKnowledge(id, active);
@@ -125,7 +130,7 @@ export async function toggleKnowledgeAction(
 }
 
 export async function deleteKnowledgeAction(id: string): Promise<AssistantActionState> {
-  const denied = await requireAssistantPermission();
+  const denied = await requireKnowledgePermission();
   if (denied) return { error: denied };
   try {
     await deleteWhatsappKnowledge(id);

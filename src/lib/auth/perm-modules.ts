@@ -32,6 +32,7 @@ export const PERM_MODULES: PermModule[] = [
   { key: "cupones", label: "Cupones y promos", href: "/admin/cupones" },
   { key: "reportes", label: "IA y reportes", href: "/admin/reportes" },
   { key: "analitica", label: "Analítica", href: "/admin/analitica" },
+  { key: "conocimiento", label: "Base de conocimiento", href: "/admin/conocimiento" },
   { key: "asistente", label: "Asistente WhatsApp", href: "/admin/asistente" },
 ];
 

@@ -13,6 +13,7 @@ import {
   Tag,
   TicketPercent,
   Sparkles,
+  BrainCircuit,
   LineChart,
   Menu,
   X,
@@ -23,6 +24,7 @@ import { Logo } from "@/components/Logo";
 import { ConsultoriaDigitalLogo } from "@/components/ConsultoriaDigitalLogo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { cn } from "@/lib/cn";
+import { WhatsAppIcon } from "@/components/admin/WhatsAppIcon";
 import { hasPermission } from "@/lib/auth/perm-modules";
 import {
   ADMIN_PREFERENCES_EVENT,
@@ -44,7 +46,8 @@ const nav = [
   { href: "/admin/cupones", label: "Cupones y promos", icon: TicketPercent, perm: "cupones", hideKey: "cupones" },
   { href: "/admin/reportes", label: "IA y reportes", icon: Sparkles, perm: "reportes", hideKey: "reportes" },
   { href: "/admin/analitica", label: "Analítica", icon: LineChart, perm: "analitica", hideKey: "analitica" },
-  { href: "/admin/asistente", label: "Asistente WhatsApp", icon: Sparkles, perm: "asistente", hideKey: "asistente" },
+  { href: "/admin/conocimiento", label: "Base de conocimiento", icon: BrainCircuit, perm: "conocimiento", hideKey: "conocimiento" },
+  { href: "/admin/asistente", label: "Asistente WhatsApp", icon: WhatsAppIcon, perm: "asistente", hideKey: "asistente" },
 ];
 
 function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () => void }) {

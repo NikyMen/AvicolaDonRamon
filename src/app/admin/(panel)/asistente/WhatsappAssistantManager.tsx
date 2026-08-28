@@ -48,9 +48,12 @@ import {
 
 type Tab = "information" | "graph" | "control";
 
-const tabs: { id: Tab; label: string; compact: string; icon: typeof BookOpen }[] = [
+const knowledgeTabs: { id: Tab; label: string; compact: string; icon: typeof BookOpen }[] = [
   { id: "information", label: "Información", compact: "Información", icon: BookOpen },
   { id: "graph", label: "Mapa de conocimiento", compact: "Mapa", icon: Network },
+];
+
+const controlTabs: { id: Tab; label: string; compact: string; icon: typeof BookOpen }[] = [
   { id: "control", label: "Control del asistente", compact: "Control", icon: Power },
 ];
 
@@ -73,13 +76,16 @@ export function WhatsappAssistantManager({
   initialEnabled,
   knowledge,
   contacts,
+  mode,
 }: {
   initialEnabled: boolean;
   knowledge: WhatsappKnowledge[];
   contacts: WhatsappContact[];
+  mode: "knowledge" | "control";
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("information");
+  const tabs = mode === "knowledge" ? knowledgeTabs : controlTabs;
+  const [tab, setTab] = useState<Tab>(mode === "knowledge" ? "information" : "control");
   const [enabled, setEnabled] = useState(initialEnabled);
   const [editingKnowledge, setEditingKnowledge] = useState<
     WhatsappKnowledge | undefined | null
@@ -132,7 +138,7 @@ export function WhatsappAssistantManager({
   return (
     <div className="space-y-4">
       <div className="sticky top-[4.1rem] z-30 rounded-2xl bg-white/95 p-1.5 shadow-soft backdrop-blur">
-        <div className="grid grid-cols-3 gap-1" role="tablist" aria-label="Secciones del asistente">
+        <div className={cn("grid gap-1", mode === "knowledge" ? "grid-cols-2" : "grid-cols-1")} role="tablist" aria-label="Secciones del módulo">
           {tabs.map(({ id, label, compact, icon: Icon }) => (
             <button
               key={id}
@@ -155,7 +161,7 @@ export function WhatsappAssistantManager({
         </div>
       </div>
 
-      {tab === "information" && (
+      {mode === "knowledge" && tab === "information" && (
         <InformationTab
           knowledge={visibleKnowledge}
           total={knowledge.length}
@@ -176,7 +182,7 @@ export function WhatsappAssistantManager({
         />
       )}
 
-      {tab === "graph" && (
+      {mode === "knowledge" && tab === "graph" && (
         <KnowledgeGraph
           knowledge={visibleKnowledge}
           query={knowledgeQuery}
@@ -187,7 +193,7 @@ export function WhatsappAssistantManager({
         />
       )}
 
-      {tab === "control" && (
+      {mode === "control" && tab === "control" && (
         <ControlTab
           enabled={enabled}
           pending={pending}
