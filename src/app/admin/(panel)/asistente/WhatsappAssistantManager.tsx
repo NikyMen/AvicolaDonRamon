@@ -736,8 +736,11 @@ function KnowledgeModal({ item, onClose }: { item?: WhatsappKnowledge; onClose: 
   );
 }
 
+type ScreenshotPerspective = "auto" | "business-right" | "business-left";
+
 async function readScreenshotConversation(
   files: File[],
+  perspective: ScreenshotPerspective,
   onProgress: (value: number) => void
 ): Promise<string> {
   const { createWorker, OEM } = await import("tesseract.js");
@@ -763,9 +766,14 @@ async function readScreenshotConversation(
       const text = paragraphs.length
         ? paragraphs
             .map((paragraph) => {
-              const speaker = (paragraph.bbox.x0 + paragraph.bbox.x1) / 2 >= width / 2
-                ? "Negocio"
-                : "Cliente";
+              const side = (paragraph.bbox.x0 + paragraph.bbox.x1) / 2 >= width / 2
+                ? "right"
+                : "left";
+              const speaker = perspective === "auto"
+                ? `Burbuja ${side === "right" ? "derecha" : "izquierda"}`
+                : perspective === `business-${side}`
+                  ? "Negocio"
+                  : "Cliente";
               return `[${speaker}] ${paragraph.text.replace(/\s*\n\s*/g, " ").trim()}`;
             })
             .join("\n")
@@ -783,8 +791,12 @@ function ConversationModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [saveState, saveAction, saving] = useActionState<AssistantActionState, FormData>(saveKnowledgeAction, {});
   const [raw, setRaw] = useState("");
+  const [context, setContext] = useState("");
   const [desired, setDesired] = useState("");
   const [files, setFiles] = useState<File[]>([]);
+  const [extractedText, setExtractedText] = useState("");
+  const [perspective, setPerspective] = useState<ScreenshotPerspective>("auto");
+  const [fileInputKey, setFileInputKey] = useState(0);
   const [progress, setProgress] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
@@ -798,7 +810,7 @@ function ConversationModal({ onClose }: { onClose: () => void }) {
   }, [saveState.ok, onClose, router]);
 
   async function normalize() {
-    if (!raw.trim() && files.length === 0) {
+    if (!raw.trim() && files.length === 0 && !extractedText) {
       setError("Pegá una conversación o seleccioná al menos una captura.");
       return;
     }
@@ -807,9 +819,22 @@ function ConversationModal({ onClose }: { onClose: () => void }) {
     setProgress(0);
     try {
       const screenshotText = files.length
-        ? await readScreenshotConversation(files, (value) => setProgress(value / files.length))
-        : "";
-      const combined = [raw.trim() && `[Texto escrito]\n${raw.trim()}`, screenshotText]
+        ? await readScreenshotConversation(
+            files,
+            perspective,
+            (value) => setProgress(value / files.length)
+          )
+        : extractedText;
+      if (files.length) {
+        setExtractedText(screenshotText);
+        setFiles([]);
+        setFileInputKey((value) => value + 1);
+      }
+      const combined = [
+        context.trim() && `[Contexto del administrador]\n${context.trim()}`,
+        raw.trim() && `[Texto escrito]\n${raw.trim()}`,
+        screenshotText,
+      ]
         .filter(Boolean)
         .join("\n\n");
       const result = await normalizeConversationAction(combined, desired);
@@ -831,7 +856,7 @@ function ConversationModal({ onClose }: { onClose: () => void }) {
       {!normalized ? (
         <div className="space-y-4 text-sm">
           <div className="rounded-xl bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
-            En capturas de WhatsApp se toma la izquierda como cliente y la derecha como negocio. Podés cargar varias imágenes en orden; el OCR se ejecuta en este dispositivo.
+            Podés cargar varias capturas en orden. El texto se extrae en este dispositivo: las imágenes no se suben ni se guardan y se descartan al terminar el OCR.
           </div>
           <Field label="Conversación por escrito">
             <textarea
@@ -849,24 +874,52 @@ function ConversationModal({ onClose }: { onClose: () => void }) {
               <span className="mt-2 font-semibold text-brand-ink">Seleccionar capturas</span>
               <span className="mt-1 text-xs text-brand-ink/50">PNG, JPG o WebP · podés elegir varias</span>
               <input
+                key={fileInputKey}
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 multiple
                 className="sr-only"
-                onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
+                onChange={(event) => {
+                  setFiles(Array.from(event.target.files ?? []));
+                  setExtractedText("");
+                }}
               />
             </label>
             {files.length > 0 && (
               <p className="mt-2 text-xs text-brand-ink/55">{files.length} captura(s): {files.map((file) => file.name).join(", ")}</p>
             )}
+            {!files.length && extractedText && (
+              <p className="mt-2 text-xs font-semibold text-emerald-700">Texto extraído. Las capturas ya fueron descartadas.</p>
+            )}
           </Field>
-          <Field label="¿Cómo debería contestar el bot en una situación así?">
+          <Field label="¿Desde qué teléfono se tomó la captura?">
+            <select
+              value={perspective}
+              onChange={(event) => setPerspective(event.target.value as ScreenshotPerspective)}
+              className="input-admin"
+            >
+              <option value="auto">Automático: que la IA identifique al negocio</option>
+              <option value="business-right">Del negocio: sus mensajes están a la derecha</option>
+              <option value="business-left">Del cliente: el negocio está a la izquierda</option>
+            </select>
+          </Field>
+          <Field label="Contexto para interpretar las capturas">
+            <textarea
+              value={context}
+              onChange={(event) => setContext(event.target.value)}
+              maxLength={2000}
+              rows={3}
+              placeholder="Ej. La captura la mandó el cliente; el asistente es quien informa precios y horarios."
+              className="input-admin resize-y"
+            />
+          </Field>
+          <Field label="¿Qué debe aprender o cambiar el bot?">
             <textarea
               value={desired}
               onChange={(event) => setDesired(event.target.value)}
               maxLength={4000}
               rows={4}
-              placeholder="Ej. Pedir primero la zona y luego informar el costo de envío, con tono amable y breve."
+              placeholder="Ej. No digas siempre «te paso con una persona». Si preguntan por envío, respondé primero el costo y después pedí la zona."
               className="input-admin resize-y"
             />
           </Field>

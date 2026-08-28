@@ -16,7 +16,7 @@ La respuesta a WhatsApp se escribe en Kommo y se envía mediante un Salesbot act
 `regular`. La credencial `AvicolaDonRamonKommo` debe autorizar correctamente la cuenta
 `contactoavicoladonramoncomar.kommo.com`.
 
-## Consulta de contexto
+## Consulta de contexto y aprendizaje
 
 Antes de generar cada respuesta, agregá un nodo **HTTP Request**:
 
@@ -28,7 +28,8 @@ Antes de generar cada respuesta, agregá un nodo **HTTP Request**:
 ```json
 {
   "phone": "{{$json.telefono}}",
-  "name": "{{$json.nombre}}"
+  "name": "{{$json.nombre}}",
+  "message": "{{$json.mensaje}}"
 }
 ```
 
@@ -49,7 +50,8 @@ Después del HTTP Request, agregá un nodo **If**:
 
 ## Datos disponibles
 
-- `data.knowledge`: información activa cargada desde el panel.
+- `data.knowledge`: reglas y ejemplos activos, seleccionados según el mensaje actual.
+- `data.knowledgeMeta`: cantidad total de entradas activas y cantidad enviada al modelo.
 - `data.business.products`: catálogo y stock actuales.
 - `data.business.offers`: ofertas activas.
 - `data.business.branches`: direcciones, teléfonos y horarios.
@@ -57,3 +59,15 @@ Después del HTTP Request, agregá un nodo **If**:
 
 El proyecto no almacena mensajes de WhatsApp. Las notas internas de cada contacto tampoco se
 incluyen en la respuesta de la API.
+
+## Aprendizaje desde capturas
+
+Desde **Conocimiento → Añadir conversación** se pueden cargar una o varias capturas en orden.
+El navegador ejecuta OCR local, identifica las burbujas por lado y permite indicar si la captura
+la tomó el negocio o el cliente. La imagen no se sube ni se guarda: se descarta después de extraer
+el texto. El administrador revisa la conversación normalizada y escribe una corrección concreta,
+por ejemplo: "No respondas siempre X; cuando pregunten Y, respondé Z".
+
+Al guardar, la corrección queda activa en PostgreSQL. n8n consulta la base en cada mensaje y aplica
+las pautas relevantes. El catálogo actual conserva prioridad sobre ejemplos históricos para evitar
+precios, promociones o stock desactualizados.

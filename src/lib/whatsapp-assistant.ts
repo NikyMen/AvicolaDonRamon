@@ -7,6 +7,106 @@ import type { WhatsappContact, WhatsappKnowledge } from "./types";
 
 export const WHATSAPP_SETTINGS_ID = "main";
 
+const GLOBAL_KNOWLEDGE_CATEGORIES = new Set([
+  "general",
+  "instrucciones",
+  "politicas",
+  "reglas",
+  "tono",
+]);
+
+const SEARCH_STOP_WORDS = new Set([
+  "como",
+  "con",
+  "cuando",
+  "donde",
+  "para",
+  "pero",
+  "porque",
+  "por",
+  "que",
+  "quiero",
+  "sobre",
+  "tiene",
+  "tienen",
+  "una",
+  "uno",
+  "unos",
+  "unas",
+]);
+
+function searchable(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function searchTerms(value: string): string[] {
+  return [...new Set(
+    searchable(value)
+      .split(" ")
+      .filter((term) => term.length >= 3 && !SEARCH_STOP_WORDS.has(term))
+  )].slice(0, 24);
+}
+
+/**
+ * Prioriza reglas globales y ejemplos relacionados con el mensaje actual.
+ * Evita enviar toda la base a la IA cuando el aprendizaje crece sin sumar
+ * una dependencia de embeddings ni perder las instrucciones generales.
+ */
+export function selectRelevantWhatsappKnowledge(
+  knowledge: WhatsappKnowledge[],
+  message: string,
+  options: { maxEntries?: number; maxCharacters?: number } = {}
+): WhatsappKnowledge[] {
+  const terms = searchTerms(message);
+  const maxEntries = options.maxEntries ?? 16;
+  const maxCharacters = options.maxCharacters ?? 24_000;
+
+  const scored = knowledge.map((item, index) => {
+    const category = searchable(item.category);
+    const title = searchable(item.title);
+    const tags = searchable(item.tags.join(" "));
+    const content = searchable(item.content);
+    const global = GLOBAL_KNOWLEDGE_CATEGORIES.has(category);
+    const relevance = terms.reduce(
+      (score, term) =>
+        score
+        + (title.includes(term) ? 8 : 0)
+        + (tags.includes(term) ? 6 : 0)
+        + (category.includes(term) ? 4 : 0)
+        + (content.includes(term) ? 1 : 0),
+      0
+    );
+    return { item, index, global, relevance };
+  });
+
+  scored.sort((a, b) =>
+    Number(b.global) - Number(a.global)
+    || b.relevance - a.relevance
+    || a.index - b.index
+  );
+
+  const selected: WhatsappKnowledge[] = [];
+  let characters = 0;
+  for (const candidate of scored) {
+    if (selected.length >= maxEntries) break;
+    if (!candidate.global && terms.length > 0 && candidate.relevance === 0) continue;
+    const size = candidate.item.title.length + candidate.item.content.length;
+    if (selected.length > 0 && characters + size > maxCharacters) continue;
+    selected.push(candidate.item);
+    characters += size;
+  }
+
+  // Sin coincidencias claras, conserva ejemplos recientes para que la base no
+  // quede invisible ante mensajes cortos o con errores de escritura.
+  if (selected.length === 0) return knowledge.slice(0, Math.min(6, maxEntries));
+  return selected;
+}
+
 function ensureDatabase() {
   if (!hasDatabase) throw new NoDatabaseError();
 }

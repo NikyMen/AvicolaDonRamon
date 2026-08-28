@@ -43,7 +43,7 @@ function node({ id, name, type, typeVersion, position, parameters, credentials, 
   };
 }
 
-function httpNode({ id, name, position, method = "GET", url, body, headers, onError = "continueRegularOutput" }) {
+function httpNode({ id, name, position, method = "GET", url, body, headers, credentials, onError = "continueRegularOutput" }) {
   return node({
     id,
     name,
@@ -68,7 +68,7 @@ function httpNode({ id, name, position, method = "GET", url, body, headers, onEr
         : {}),
       options: { timeout: 8000 },
     },
-    credentials: url.includes("kommo.com") ? KOMMO_CREDENTIAL : undefined,
+    credentials: credentials ?? (url.includes("kommo.com") ? KOMMO_CREDENTIAL : undefined),
     onError,
   });
 }
@@ -340,6 +340,14 @@ return [{ json: { ...base, botId: selected ? Number(selected.id) : null, botName
 
 const env = parseEnv(await readFile(new URL("../.env.local", import.meta.url), "utf8"));
 if (!env.N8N_API_URL || !env.N8N_API_KEY) throw new Error("Faltan N8N_API_URL o N8N_API_KEY en .env.local");
+const avicolaCredentialId = process.env.N8N_AVICOLA_WEB_CREDENTIAL_ID || env.N8N_AVICOLA_WEB_CREDENTIAL_ID;
+if (!avicolaCredentialId) throw new Error("Falta N8N_AVICOLA_WEB_CREDENTIAL_ID para autenticar la API web.");
+const AVICOLA_WEB_CREDENTIAL = {
+  httpHeaderAuth: {
+    id: avicolaCredentialId,
+    name: "AvicolaDonRamonWebApi",
+  },
+};
 const baseUrl = apiRoot(env.N8N_API_URL);
 const headers = { "X-N8N-API-KEY": env.N8N_API_KEY, "Content-Type": "application/json" };
 const request = async (path, options = {}) => {
@@ -372,6 +380,28 @@ const byName = (name) => workflow.nodes.find((item) => item.name === name);
 for (const required of ["Dedup mensaje", "Edit Fields", "Es entrante?1", "AI Agent", "Simple Memory1", "Escribir respuesta normal", "Lanzar Salesbot"]) {
   if (!byName(required)) throw new Error(`No se encontró el nodo requerido: ${required}`);
 }
+
+const knowledgePromptStart = "[INICIO APRENDIZAJE DON RAMON]";
+const knowledgePromptEnd = "[FIN APRENDIZAJE DON RAMON]";
+const knowledgePrompt = `${knowledgePromptStart}
+BASE DE CONOCIMIENTO Y APRENDIZAJE:
+- El campo knowledge contiene información y correcciones revisadas por el administrador.
+- Aplicá únicamente las entradas relevantes al mensaje actual.
+- Si una entrada contiene "CÓMO DEBERÍA RESPONDER", tratala como una pauta explícita para casos similares.
+- Una pauta explícita tiene prioridad sobre el estilo de una conversación de ejemplo.
+- El catálogo actual siempre tiene prioridad sobre ejemplos históricos para precios, promociones y stock.
+- No copies nombres, teléfonos ni otros datos particulares de conversaciones de ejemplo.
+- Si dos pautas se contradicen, preferí la más específica y luego la más reciente según updatedAt.
+${knowledgePromptEnd}`;
+const agent = byName("AI Agent");
+const currentSystemMessage = String(agent.parameters?.options?.systemMessage ?? "");
+const withoutOldKnowledgePrompt = currentSystemMessage
+  .replace(new RegExp(`${knowledgePromptStart}[\\s\\S]*?${knowledgePromptEnd}`, "g"), "")
+  .trim();
+agent.parameters.options = {
+  ...(agent.parameters.options ?? {}),
+  systemMessage: `${withoutOldKnowledgePrompt}\n\n${knowledgePrompt}`,
+};
 
 byName("Dedup mensaje").parameters.jsCode = dedupCode;
 const assignments = byName("Edit Fields").parameters.assignments.assignments;
@@ -424,7 +454,10 @@ workflow.nodes.push(
     id: ids.webContext,
     name: "Contexto web Don Ramon",
     position: [992, 0],
-    url: "={{ String($vars.AVICOLA_WEB_API_URL || '').replace(/\\/$/, '') + '/api/v1/assistant/catalog' }}",
+    method: "POST",
+    url: "https://avicoladonramon.consultoriadigital.io/api/v1/assistant/context",
+    body: "={{ ({ phone: $('Preparar contexto Don Ramon').first().json.phone, name: $('Preparar contexto Don Ramon').first().json.name, message: $('Preparar contexto Don Ramon').first().json.text }) }}",
+    credentials: AVICOLA_WEB_CREDENTIAL,
   }),
   ifNode(ids.shouldReply, "Responder Don Ramon", [1200, 0], "={{ $json.data?.assistant?.enabled !== false }}"),
   codeNode(ids.aiInput, "Preparar entrada IA Don Ramon", [1408, 0], prepareAiCode),

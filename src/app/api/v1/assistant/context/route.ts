@@ -9,6 +9,7 @@ import { sucursales } from "@/lib/sucursales";
 import {
   getWhatsappAssistantEnabled,
   listWhatsappKnowledge,
+  selectRelevantWhatsappKnowledge,
   touchWhatsappContact,
 } from "@/lib/whatsapp-assistant";
 
@@ -18,6 +19,7 @@ export const runtime = "nodejs";
 const inputSchema = z.object({
   phone: z.string().trim().min(1).refine(isValidPhone, "Teléfono inválido."),
   name: z.string().trim().max(100).optional(),
+  message: z.string().trim().max(4000).optional(),
 });
 
 /**
@@ -40,6 +42,8 @@ export async function POST(req: NextRequest) {
         getSuperOferta(),
       ]);
 
+    const relevantKnowledge = selectRelevantWhatsappKnowledge(knowledge, input.message ?? "");
+
     return ok({
       assistant: {
         enabled,
@@ -52,7 +56,7 @@ export async function POST(req: NextRequest) {
         name: contact.name,
         lastSeenAt: contact.lastSeenAt,
       },
-      knowledge: knowledge.map(({ id, title, category, content, tags, updatedAt }) => ({
+      knowledge: relevantKnowledge.map(({ id, title, category, content, tags, updatedAt }) => ({
         id,
         title,
         category,
@@ -60,6 +64,10 @@ export async function POST(req: NextRequest) {
         tags,
         updatedAt,
       })),
+      knowledgeMeta: {
+        active: knowledge.length,
+        selected: relevantKnowledge.length,
+      },
       business: {
         products,
         offers,
