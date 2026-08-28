@@ -178,29 +178,38 @@ model OrderItem {
 // Cupón configurable desde el panel. Puede descontar un porcentaje sobre todo
 // el carrito o sobre un producto puntual, y sumar un producto de regalo.
 model Coupon {
-  id                String   @id @default(cuid())
-  code              String   @unique
+  id                      String    @id @default(cuid())
+  code                    String    @unique
+  // Campos históricos de producción. Se conservan para no perder reglas de
+  // vigencia, días, envío y selección múltiple al actualizar la aplicación.
+  couponType              String    @default("precio")
   // "coupon" y "three_for_two" requieren código; "second_unit" se aplica automáticamente.
-  kind              String   @default("coupon")
-  automatic         Boolean  @default(false)
-  maxUses           Int
-  usedCount         Int      @default(0)
-  discountPercent   Int      @default(0)
-  discountProduct   Product? @relation("CouponDiscountProduct", fields: [discountProductId], references: [id])
-  discountProductId String?
-  giftProduct       Product? @relation("CouponGiftProduct", fields: [giftProductId], references: [id])
-  giftProductId     String?
-  giftQty           Int      @default(1)
+  kind                    String    @default("coupon")
+  automatic               Boolean   @default(false)
+  maxUses                 Int
+  usedCount               Int       @default(0)
+  availableDays           Int[]     @default([])
+  startsAt                DateTime? @db.Date
+  endsAt                  DateTime? @db.Date
+  discountPercent         Int       @default(0)
+  shippingDiscountPercent Int       @default(0)
+  discountProduct         Product?  @relation("CouponDiscountProduct", fields: [discountProductId], references: [id])
+  discountProductId       String?
+  discountProductIds      String[]  @default([])
+  giftProduct             Product?  @relation("CouponGiftProduct", fields: [giftProductId], references: [id])
+  giftProductId           String?
+  giftQty                 Int       @default(1)
   // Regalo de bienvenida: solo vale en la primera compra de cada teléfono.
-  firstPurchaseOnly Boolean  @default(false)
-  oncePerPhone      Boolean  @default(false)
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  firstPurchaseOnly       Boolean   @default(false)
+  oncePerPhone            Boolean   @default(false)
+  active                  Boolean   @default(true)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   orders Order[]
 
   @@index([active, code])
+  @@index([active, couponType])
 }
 
 // Código OTP de un solo uso para el login por teléfono (WhatsApp vía n8n).

@@ -1,0 +1,5 @@
+ALTER TABLE "Coupon"
+ADD COLUMN "startsAt" DATE,
+ADD COLUMN "endsAt" DATE,
+ADD COLUMN "shippingDiscountPercent" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "discountProductIds" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];
