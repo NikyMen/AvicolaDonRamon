@@ -14,7 +14,7 @@ Content-Type: application/json
 El backend genera un código de 4 dígitos, lo guarda hasheado por 5 minutos y llama al webhook configurado en:
 
 ```env
-OTP_WHATSAPP_WEBHOOK_URL="https://n8n.srv1224751.hstgr.cloud/webhook/codigo-polleria-web"
+OTP_WHATSAPP_WEBHOOK_URL="https://n8n.srv1224751.hstgr.cloud/webhook/codigo-avicola-don-ramon"
 OTP_LOG_CODE=""
 ```
 
@@ -45,7 +45,7 @@ El webhook recibe:
 
 1. `Webhook`
    - Method: `POST`
-   - Path: `codigo-polleria-web`
+   - Path: `codigo-avicola-don-ramon`
    - Response: responder con `200` al final del flujo.
 
 2. Nodo de WhatsApp
@@ -60,4 +60,4 @@ El webhook recibe:
 { "ok": true }
 ```
 
-Importante: para producción usá `/webhook/codigo-polleria-web` con el workflow activo. Para pruebas puntuales en n8n podés cambiar temporalmente a `/webhook-test/codigo-polleria-web`.
+Importante: para producción usá `/webhook/codigo-avicola-don-ramon` con el workflow activo. Para pruebas puntuales en n8n podés cambiar temporalmente a `/webhook-test/codigo-avicola-don-ramon`.

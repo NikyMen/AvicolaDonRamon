@@ -1,4 +1,4 @@
-// Esquema de la base de datos de Pollería Entre Ríos.
+// Esquema de la base de datos de Avícola Don Ramón.
 // Motor: PostgreSQL. ORM: Prisma.
 
 generator client {

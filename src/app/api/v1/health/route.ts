@@ -17,7 +17,7 @@ export async function GET() {
   }
   return NextResponse.json({
     status: "ok",
-    service: "polleria-entre-rios-api",
+    service: "avicola-don-ramon-api",
     version: "v1",
     database: db,
     time: new Date().toISOString(),

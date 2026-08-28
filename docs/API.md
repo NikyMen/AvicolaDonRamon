@@ -30,7 +30,7 @@ tome pedidos y gestione clientes.
 GET /health
 ```
 ```json
-{ "status": "ok", "service": "polleria-entre-rios-api", "version": "v1", "database": "ok", "time": "..." }
+{ "status": "ok", "service": "avicola-don-ramon-api", "version": "v1", "database": "ok", "time": "..." }
 ```
 
 ### Catálogo

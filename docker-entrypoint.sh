@@ -24,5 +24,5 @@ echo "⏳ Esperando a la base de datos y aplicando el esquema…"
 # Aplica únicamente las migraciones versionadas en producción.
 pnpm exec prisma migrate deploy
 
-echo "🚀 Iniciando Pollería Entre Ríos…"
+echo "🚀 Iniciando Avícola Don Ramón…"
 exec pnpm start
