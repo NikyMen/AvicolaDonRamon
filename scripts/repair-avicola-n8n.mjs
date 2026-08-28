@@ -44,6 +44,7 @@ function node({ id, name, type, typeVersion, position, parameters, credentials, 
 }
 
 function httpNode({ id, name, position, method = "GET", url, body, headers, credentials, onError = "continueRegularOutput" }) {
+  const resolvedCredentials = credentials ?? (url.includes("kommo.com") ? KOMMO_CREDENTIAL : undefined);
   return node({
     id,
     name,
@@ -52,6 +53,12 @@ function httpNode({ id, name, position, method = "GET", url, body, headers, cred
     position,
     parameters: {
       ...(method !== "GET" ? { method } : {}),
+      ...(resolvedCredentials
+        ? {
+            authentication: "genericCredentialType",
+            genericAuthType: "httpHeaderAuth",
+          }
+        : {}),
       url,
       ...(headers
         ? {
@@ -68,7 +75,7 @@ function httpNode({ id, name, position, method = "GET", url, body, headers, cred
         : {}),
       options: { timeout: 8000 },
     },
-    credentials: credentials ?? (url.includes("kommo.com") ? KOMMO_CREDENTIAL : undefined),
+    credentials: resolvedCredentials,
     onError,
   });
 }
