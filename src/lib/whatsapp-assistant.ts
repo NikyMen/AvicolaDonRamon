@@ -130,7 +130,7 @@ function mapKnowledge(row: {
 
 function mapContact(row: {
   id: string;
-  leadId: string | null;
+  leadId?: string | null;
   phone: string;
   name: string | null;
   notes: string | null;
