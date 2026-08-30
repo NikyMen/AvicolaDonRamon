@@ -219,6 +219,7 @@ export interface WhatsappKnowledge {
 
 export interface WhatsappContact {
   id: string;
+  leadId?: string;
   phone: string;
   name?: string;
   notes?: string;

@@ -130,6 +130,7 @@ function mapKnowledge(row: {
 
 function mapContact(row: {
   id: string;
+  leadId: string | null;
   phone: string;
   name: string | null;
   notes: string | null;
@@ -140,6 +141,7 @@ function mapContact(row: {
 }): WhatsappContact {
   return {
     id: row.id,
+    leadId: row.leadId ?? undefined,
     phone: row.phone,
     name: row.name ?? undefined,
     notes: row.notes ?? undefined,
@@ -223,6 +225,7 @@ export async function listWhatsappContacts(): Promise<WhatsappContact[]> {
 
 export async function saveWhatsappContact(input: {
   id?: string;
+  leadId?: string;
   phone: string;
   name?: string;
   notes?: string;
@@ -231,6 +234,7 @@ export async function saveWhatsappContact(input: {
   ensureDatabase();
   const phone = normalizePhone(input.phone);
   const data = {
+    leadId: input.leadId?.trim() || null,
     phone,
     name: input.name?.trim() || null,
     notes: input.notes?.trim() || null,
@@ -247,18 +251,21 @@ export async function saveWhatsappContact(input: {
 }
 
 /** Registra la interacción que n8n consulta sin guardar mensajes. */
-export async function touchWhatsappContact(phoneRaw: string, name?: string): Promise<WhatsappContact> {
+export async function touchWhatsappContact(phoneRaw: string, name?: string, leadId?: string): Promise<WhatsappContact> {
   ensureDatabase();
   const phone = normalizePhone(phoneRaw);
   const cleanName = name?.trim();
+  const cleanLeadId = leadId?.trim() || undefined;
   const row = await prisma.whatsappContact.upsert({
     where: { phone },
     update: {
       lastSeenAt: new Date(),
       ...(cleanName ? { name: cleanName } : {}),
+      ...(cleanLeadId ? { leadId: cleanLeadId } : {}),
     },
     create: {
       phone,
+      leadId: cleanLeadId,
       name: cleanName || null,
       lastSeenAt: new Date(),
     },

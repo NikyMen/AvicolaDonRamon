@@ -111,7 +111,7 @@ export function WhatsappAssistantManager({
     const query = searchable(contactQuery.trim());
     if (!query) return contacts;
     return contacts.filter((contact) =>
-      searchable([contact.name, contact.phone, contact.notes].filter(Boolean).join(" ")).includes(query)
+      searchable([contact.name, contact.phone, contact.leadId, contact.notes].filter(Boolean).join(" ")).includes(query)
     );
   }, [contacts, contactQuery]);
 
@@ -684,7 +684,8 @@ function ControlTab({
                     {contact.assistantPaused ? "En pausa" : "Activo"}
                   </span>
                 </div>
-                <p className="text-sm text-brand-ink/60">{formatPhone(contact.phone)}</p>
+                  <p className="text-sm text-brand-ink/60">{formatPhone(contact.phone)}</p>
+                  <p className="text-xs text-brand-ink/45">Lead: {contact.leadId || "—"}</p>
                 <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-brand-ink/40"><Clock3 size={11} /> {formatDate(contact.lastSeenAt)}</p>
                 {contact.notes && <p className="mt-1 truncate text-xs text-brand-ink/50">Nota interna: {contact.notes}</p>}
               </div>
@@ -972,7 +973,8 @@ function ContactModal({ contact, onClose }: { contact?: WhatsappContact; onClose
       <form action={formAction} className="space-y-4 text-sm">
         {contact && <input type="hidden" name="id" value={contact.id} />}
         <Field label="Nombre"><input name="name" maxLength={100} defaultValue={contact?.name} placeholder="Opcional" className="input-admin" /></Field>
-        <Field label="Teléfono"><input name="phone" required defaultValue={contact?.phone} placeholder="Ej. +54 9 379 400 0000" className="input-admin" /></Field>
+          <Field label="Lead ID"><input name="leadId" defaultValue={contact?.leadId} placeholder="Se completa desde n8n" className="input-admin" /></Field>
+          <Field label="Teléfono"><input name="phone" required defaultValue={contact?.phone} placeholder="Ej. +54 9 379 400 0000" className="input-admin" /></Field>
         <Field label="Notas internas"><textarea name="notes" maxLength={1000} rows={4} defaultValue={contact?.notes} placeholder="No se envían a n8n ni al modelo." className="input-admin resize-y" /></Field>
         <label className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 font-semibold text-amber-900"><input name="assistantPaused" type="checkbox" defaultChecked={contact?.assistantPaused} className="h-4 w-4 accent-amber-700" /><PauseCircle size={16} /> Pausar respuestas para este número</label>
         {state.error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-red-700">{state.error}</p>}

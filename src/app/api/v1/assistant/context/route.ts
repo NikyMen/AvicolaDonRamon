@@ -18,6 +18,7 @@ export const runtime = "nodejs";
 
 const inputSchema = z.object({
   phone: z.string().trim().min(1).refine(isValidPhone, "Teléfono inválido."),
+  leadId: z.string().trim().max(100).optional(),
   name: z.string().trim().max(100).optional(),
   message: z.string().trim().max(4000).optional(),
 });
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     const input = inputSchema.parse(await req.json());
     const [contact, enabled, knowledge, products, offers, superOferta] =
       await Promise.all([
-        touchWhatsappContact(input.phone, input.name),
+        touchWhatsappContact(input.phone, input.name, input.leadId),
         getWhatsappAssistantEnabled(),
         listWhatsappKnowledge({ activeOnly: true }),
         listProducts(),
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
       },
       contact: {
         id: contact.id,
+        leadId: contact.leadId,
         phone: contact.phone,
         name: contact.name,
         lastSeenAt: contact.lastSeenAt,

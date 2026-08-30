@@ -158,6 +158,7 @@ export async function saveContactAction(
   try {
     await saveWhatsappContact({
       id: String(formData.get("id") ?? "").trim() || undefined,
+      leadId: String(formData.get("leadId") ?? "").trim() || undefined,
       phone: normalizePhone(phoneRaw),
       name,
       notes,

@@ -339,6 +339,7 @@ model WhatsappKnowledge {
 // Contactos vistos por n8n. No guarda mensajes ni información sensible.
 model WhatsappContact {
   id              String    @id @default(cuid())
+  leadId          String?   @unique
   phone           String    @unique
   name            String?
   notes           String?
