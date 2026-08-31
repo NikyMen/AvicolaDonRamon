@@ -232,7 +232,15 @@ export async function saveWhatsappContact(input: {
   assistantPaused: boolean;
 }): Promise<WhatsappContact> {
   ensureDatabase();
-  const phone = normalizePhone(input.phone);
+  const phone = input.phone ? normalizePhone(input.phone) : undefined;
+  if (input.id && !phone) {
+    const row = await prisma.whatsappContact.update({
+      where: { id: input.id },
+      data: { assistantPaused: input.assistantPaused },
+    });
+    return mapContact(row);
+  }
+  if (!phone) throw new Error("El teléfono es obligatorio.");
   const data = {
     leadId: input.leadId?.trim() || null,
     phone,
@@ -271,4 +279,23 @@ export async function touchWhatsappContact(phoneRaw: string, name?: string, lead
     },
   });
   return mapContact(row);
+}
+
+export async function recordWhatsappInteraction(input: { contactId: string; leadId?: string | null; phone: string; message?: string }) {
+  if (!hasDatabase) return;
+  await prisma.whatsappInteraction.create({ data: {
+    contactId: input.contactId,
+    leadId: input.leadId ?? null,
+    phone: input.phone,
+    message: input.message?.slice(0, 4000) || null,
+  }});
+}
+
+export async function getWhatsappFlowDashboard() {
+  if (!hasDatabase) return { today: { interactions: 0, contacts: 0 }, byDay: [], activeContacts: 0, totalContacts: 0 };
+  const start = new Date(); start.setHours(0, 0, 0, 0);
+  const interactions = await prisma.whatsappInteraction.findMany({ where: { createdAt: { gte: new Date(Date.now() - 6 * 86400000) } }, select: { contactId: true, createdAt: true } });
+  const today = interactions.filter((x) => x.createdAt >= start);
+  const byDay = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - (6-i)); return { label: d.toLocaleDateString("es-AR", { weekday: "short" }), value: interactions.filter((x) => x.createdAt.toDateString() === d.toDateString()).length }; });
+  return { today: { interactions: today.length, contacts: new Set(today.map((x) => x.contactId)).size }, byDay, activeContacts: new Set(interactions.map((x) => x.contactId)).size, totalContacts: await prisma.whatsappContact.count() };
 }

@@ -11,6 +11,7 @@ import {
   listWhatsappKnowledge,
   selectRelevantWhatsappKnowledge,
   touchWhatsappContact,
+  recordWhatsappInteraction,
 } from "@/lib/whatsapp-assistant";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       ]);
 
     const relevantKnowledge = selectRelevantWhatsappKnowledge(knowledge, input.message ?? "");
+    await recordWhatsappInteraction({ contactId: contact.id, leadId: contact.leadId, phone: contact.phone, message: input.message });
 
     return ok({
       assistant: {
@@ -51,6 +53,7 @@ export async function POST(req: NextRequest) {
         pausedForPhone: contact.assistantPaused,
         shouldReply: enabled && !contact.assistantPaused,
       },
+      flowScope: { type: "whatsapp_flow", leadId: contact.leadId, chatPhone: contact.phone, instruction: "Usá únicamente el contexto y la conversación de este chat; no mezcles datos de otros contactos." },
       contact: {
         id: contact.id,
         leadId: contact.leadId,

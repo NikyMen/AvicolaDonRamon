@@ -42,6 +42,7 @@ import {
   saveContactAction,
   saveKnowledgeAction,
   setAssistantEnabledAction,
+  toggleContactAssistantAction,
   toggleKnowledgeAction,
   type AssistantActionState,
 } from "./actions";
@@ -135,6 +136,10 @@ export function WhatsappAssistantManager({
     runAction(() => setAssistantEnabledAction(next), () => setEnabled(next));
   }
 
+  function changeContactPaused(contact: WhatsappContact) {
+    runAction(() => toggleContactAssistantAction(contact.id, !contact.assistantPaused));
+  }
+
   return (
     <div className="space-y-4">
       <div className="sticky top-[4.1rem] z-30 rounded-2xl bg-white/95 p-1.5 shadow-soft backdrop-blur">
@@ -204,6 +209,7 @@ export function WhatsappAssistantManager({
           onEnabledChange={changeEnabled}
           onCreate={() => setEditingContact(undefined)}
           onEdit={setEditingContact}
+          onTogglePaused={changeContactPaused}
         />
       )}
 
@@ -619,6 +625,7 @@ function ControlTab({
   onEnabledChange,
   onCreate,
   onEdit,
+  onTogglePaused,
 }: {
   enabled: boolean;
   pending: boolean;
@@ -629,6 +636,7 @@ function ControlTab({
   onEnabledChange: (enabled: boolean) => void;
   onCreate: () => void;
   onEdit: (contact: WhatsappContact) => void;
+  onTogglePaused: (contact: WhatsappContact) => void;
 }) {
   return (
     <section className="space-y-4" aria-labelledby="control-title">
@@ -689,7 +697,10 @@ function ControlTab({
                 <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-brand-ink/40"><Clock3 size={11} /> {formatDate(contact.lastSeenAt)}</p>
                 {contact.notes && <p className="mt-1 truncate text-xs text-brand-ink/50">Nota interna: {contact.notes}</p>}
               </div>
-              <button type="button" onClick={() => onEdit(contact)} className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg border border-black/10 px-3 py-2 text-xs font-semibold text-brand-ink/70 hover:bg-black/5"><Edit3 size={13} /> Editar</button>
+              <div className="flex shrink-0 gap-2">
+                <button type="button" onClick={() => onTogglePaused(contact)} disabled={pending} className="inline-flex items-center justify-center gap-1 rounded-lg border border-black/10 px-3 py-2 text-xs font-semibold text-brand-ink/70 hover:bg-black/5 disabled:opacity-50"><PauseCircle size={13} /> {contact.assistantPaused ? "Activar" : "Desactivar"}</button>
+                <button type="button" onClick={() => onEdit(contact)} className="inline-flex items-center justify-center gap-1 rounded-lg border border-black/10 px-3 py-2 text-xs font-semibold text-brand-ink/70 hover:bg-black/5"><Edit3 size={13} /> Editar</button>
+              </div>
             </div>
           ))}
         </div>
@@ -726,7 +737,7 @@ function KnowledgeModal({ item, onClose }: { item?: WhatsappKnowledge; onClose: 
       <form action={formAction} className="space-y-4 text-sm">
         {item && <input type="hidden" name="id" value={item.id} />}
         <Field label="Título"><input name="title" required maxLength={120} defaultValue={item?.title} placeholder="Ej. Horarios de atención" className="input-admin" /></Field>
-        <Field label="Categoría"><input name="category" required maxLength={50} defaultValue={item?.category ?? "preguntas frecuentes"} list="knowledge-categories" className="input-admin" /><datalist id="knowledge-categories"><option value="preguntas frecuentes" /><option value="horarios" /><option value="envíos" /><option value="pagos" /><option value="políticas" /><option value="productos" /></datalist></Field>
+        <Field label="Categoría"><select name="category" required defaultValue={item?.category ?? "preguntas frecuentes"} className="input-admin"><option value="preguntas frecuentes">Preguntas frecuentes</option><option value="reglas de atención">Reglas de atención</option><option value="ejemplos de conversaciones">Ejemplos de conversaciones</option></select></Field>
         <Field label="Información para el bot"><textarea name="content" required maxLength={16000} rows={8} defaultValue={item?.content} placeholder="Escribí la respuesta o regla con lenguaje claro y concreto." className="input-admin resize-y" /></Field>
         <Field label="Etiquetas, separadas por coma"><input name="tags" defaultValue={item?.tags.join(", ")} placeholder="horarios, fin de semana, sucursales" className="input-admin" /></Field>
         <label className="flex items-center gap-2 rounded-xl bg-brand-cream px-3 py-2.5 font-semibold text-brand-ink"><input name="active" type="checkbox" defaultChecked={item?.active ?? true} className="h-4 w-4 accent-brand-red" /> Incluir en las respuestas de n8n</label>

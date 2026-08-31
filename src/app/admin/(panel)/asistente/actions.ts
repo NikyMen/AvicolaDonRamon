@@ -182,3 +182,19 @@ export async function setAssistantEnabledAction(enabled: boolean): Promise<Assis
     return failure(error);
   }
 }
+
+export async function toggleContactAssistantAction(
+  id: string,
+  assistantPaused: boolean
+): Promise<AssistantActionState> {
+  const denied = await requireAssistantPermission();
+  if (denied) return { error: denied };
+  try {
+    const contact = await saveWhatsappContact({ id, phone: "", assistantPaused });
+    void contact;
+    refreshAssistant();
+    return { ok: true };
+  } catch (error) {
+    return failure(error);
+  }
+}

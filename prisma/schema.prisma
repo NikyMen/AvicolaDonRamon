@@ -347,6 +347,20 @@ model WhatsappContact {
   lastSeenAt      DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  interactions    WhatsappInteraction[]
 
   @@index([lastSeenAt])
+}
+
+model WhatsappInteraction {
+  id        String   @id @default(cuid())
+  contactId String
+  leadId    String?
+  phone     String
+  message   String?
+  createdAt DateTime @default(now())
+  contact   WhatsappContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  @@index([createdAt])
+  @@index([leadId, createdAt])
+  @@index([contactId, createdAt])
 }

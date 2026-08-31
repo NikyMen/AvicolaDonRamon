@@ -179,13 +179,13 @@ const normalized = {
   messageId: pick(flat('message[add][0][id]'), content?.id, nested?.id, nested?.message_id),
   leadId: pick(flat('message[add][0][element_id]'), flat('message[add][0][entity_id]'), nested?.element_id, nested?.entity_id, nested?.lead_id),
   contactId: pick(flat('message[add][0][contact_id]'), nested?.contact_id, nested?.author?.id),
-  phone: pick(flat('message[add][0][author][phone]'), flat('message[add][0][phone]'), nested?.author?.phone, nested?.sender?.phone, nested?.phone),
+  phone: pick(nested?.author?.phone, nested?.sender?.phone, flat('message[add][0][author][phone]'), flat('message[add][0][phone]'), nested?.phone),
   text: pick(flat('message[add][0][text]'), content?.text, nested?.text, body?.text) ?? '',
   type: pick(flat('message[add][0][type]'), nested?.type === 'incoming' || nested?.type === 'outgoing' ? nested.type : undefined, body?.type, 'incoming'),
   messageType: pick(flat('message[add][0][message_type]'), flat('message[add][0][attachment][type]'), nested?.message_type, nested?.attachment?.type, content?.type, 'text'),
   mediaUrl: pick(flat('message[add][0][attachment][link]'), flat('message[add][0][media]'), nested?.attachment?.link, content?.media, nested?.media) ?? '',
   fileName: pick(flat('message[add][0][attachment][file_name]'), flat('message[add][0][file_name]'), nested?.attachment?.file_name, content?.file_name, nested?.file_name) ?? '',
-  authorName: pick(flat('message[add][0][author][name]'), nested?.author?.name, nested?.author_name) ?? '',
+  authorName: pick(nested?.author?.name, nested?.sender?.name, flat('message[add][0][author][name]'), nested?.author_name) ?? '',
   createdAt: pick(flat('message[add][0][created_at]'), nested?.created_at, body?.created_at) ?? '',
 };
 
@@ -232,7 +232,7 @@ const phone = String(rawPhone).replace(/\D/g, '');
 return [{ json: {
   ...base,
   phone,
-  name: base.name || contact?.name || '',
+  name: base.authorName || contact?.name || '',
   sessionId: 'lead:' + base.leadId,
   currentLead: base.currentLead,
 } }];`;
@@ -463,7 +463,7 @@ workflow.nodes.push(
     position: [992, 0],
     method: "POST",
     url: "https://avicoladonramon.consultoriadigital.io/api/v1/assistant/context",
-    body: "={{ ({ phone: $('Preparar contexto Don Ramon').first().json.phone, name: $('Preparar contexto Don Ramon').first().json.name, message: $('Preparar contexto Don Ramon').first().json.text }) }}",
+  body: "={{ ({ leadId: $('Preparar contexto Don Ramon').first().json.leadId, phone: $('Preparar contexto Don Ramon').first().json.phone, name: $('Preparar contexto Don Ramon').first().json.name, message: $('Preparar contexto Don Ramon').first().json.text }) }}",
     credentials: AVICOLA_WEB_CREDENTIAL,
   }),
   ifNode(ids.shouldReply, "Responder Don Ramon", [1200, 0], "={{ $json.data?.assistant?.enabled !== false }}"),
