@@ -11,7 +11,7 @@ export default async function AdminLoginPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const session = await getSession();
-  if (session?.role === "admin") redirect("/admin");
+  if (session?.role === "admin") redirect("/admin/productos");
   const { next } = await searchParams;
 
   return (
@@ -24,7 +24,7 @@ export default async function AdminLoginPage({
           <h1 className="text-xl font-bold text-brand-ink">Panel de administración</h1>
           <p className="text-sm text-brand-ink/55">Avícola Don Ramón</p>
         </div>
-        <AdminLoginForm next={next ?? "/admin"} />
+        <AdminLoginForm next={next ?? "/admin/productos"} />
         <ConsultoriaDigitalLogo className="mt-7 justify-center border-t border-black/5 pt-5" />
       </div>
     </div>

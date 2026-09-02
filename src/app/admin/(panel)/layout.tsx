@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
-  if (!session || session.role !== "admin") redirect("/admin/login?next=/admin");
+  if (!session || session.role !== "admin") redirect("/admin/login?next=/admin/productos");
 
   const perms = session.perms ?? [];
   const isSuperAdmin = perms.includes("*");

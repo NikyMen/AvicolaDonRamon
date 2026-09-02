@@ -16,7 +16,7 @@ export async function adminLogin(
 ): Promise<AdminLoginState> {
   const user = String(formData.get("user") ?? "");
   const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/admin");
+  const next = String(formData.get("next") ?? "/admin/productos");
 
   if (!user || !password) {
     return { error: "Ingresá usuario y contraseña." };
@@ -53,5 +53,6 @@ export async function adminLogin(
 
   // Los repartidores van directo a su ruta; el resto, solo a destinos internos.
   if (esRepartidor) redirect("/reparto");
-  redirect(next.startsWith("/admin") || next === "/reparto" ? next : "/admin");
+  const safeNext = next === "/admin" ? "/admin/productos" : next;
+  redirect(safeNext.startsWith("/admin") || safeNext === "/reparto" ? safeNext : "/admin/productos");
 }
