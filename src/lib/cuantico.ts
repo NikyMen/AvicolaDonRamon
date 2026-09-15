@@ -16,7 +16,7 @@ function stringValue(row: CuanticoProduct, ...keys: string[]): string | undefine
 }
 
 function priceValue(row: CuanticoProduct): number | undefined {
-  const value = stringValue(row, "precio", "price", "precio_venta", "precio_final");
+  const value = stringValue(row, "precio", "Precio", "price", "precio_venta", "PrecioVenta", "precio_final", "PrecioFinal");
   if (!value) return undefined;
   const normalized = value.replace(/\./g, "").replace(",", ".");
   const price = Number(normalized);
@@ -47,8 +47,8 @@ export async function syncCuanticoProducts(options: { fecha?: string } = {}) {
   const localProducts = await listProducts();
 
   for (const row of rows) {
-    const erpId = stringValue(row, "id_erp", "id_producto", "id", "codigo");
-    const name = stringValue(row, "nombre", "name", "descripcion", "detalle");
+    const erpId = stringValue(row, "id_erp", "IdErp", "id_producto", "IdProducto", "id", "codigo");
+    const name = stringValue(row, "nombre", "Nombre", "name", "descripcion", "Descripcion", "detalle");
     const price = priceValue(row);
     if (!erpId || !name || price === undefined) continue;
     const id = `cuantico-${erpId}`;
