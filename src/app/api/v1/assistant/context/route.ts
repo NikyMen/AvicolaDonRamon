@@ -2,9 +2,10 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { requireApiKey } from "@/lib/api/auth";
 import { handleError, ok } from "@/lib/api/respond";
-import { DELIVERY_LOCALITIES, MIN_ENVIO_TOTAL } from "@/lib/geo";
+import { FLAT_DELIVERY_FEE, MIN_ENVIO_TOTAL } from "@/lib/geo";
 import { isValidPhone } from "@/lib/phone";
-import { getDeliverySettings, listSucursales, getSuperOferta, listOffers, listProducts } from "@/lib/repo";
+import { getSuperOferta, listOffers, listProducts } from "@/lib/repo";
+import { sucursales } from "@/lib/sucursales";
 import {
   getWhatsappAssistantEnabled,
   listWhatsappKnowledge,
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const input = inputSchema.parse(await req.json());
-    const [contact, enabled, knowledge, products, offers, superOferta, sucursales, deliverySettings] =
+    const [contact, enabled, knowledge, products, offers, superOferta] =
       await Promise.all([
         touchWhatsappContact(input.phone, input.name, input.leadId),
         getWhatsappAssistantEnabled(),
@@ -42,8 +43,6 @@ export async function POST(req: NextRequest) {
         listProducts(),
         listOffers(),
         getSuperOferta(),
-      listSucursales(),
-      getDeliverySettings(),
       ]);
 
     const relevantKnowledge = selectRelevantWhatsappKnowledge(knowledge, input.message ?? "");
@@ -102,13 +101,10 @@ export async function POST(req: NextRequest) {
         delivery: {
           onlyHomeDelivery: false,
           minimumOrder: MIN_ENVIO_TOTAL,
-          coverage: DELIVERY_LOCALITIES.map((locality) => locality.name).join(", "),
-          pricing: deliverySettings.pricingMode,
-          flatFee: deliverySettings.flatFee,
-          pricePerKm: deliverySettings.pricePerKm,
-          freeAllSlots: deliverySettings.freeAllSlots,
-          freeSaturday: deliverySettings.freeSaturday,
-          originBranchId: sucursales.find((branch) => branch.id === deliverySettings.fixedSucursalId)?.id ?? sucursales[0]?.id ?? null,
+          coverage: "Todas las zonas",
+          pricing: "flat",
+          flatFee: FLAT_DELIVERY_FEE,
+          originBranchId: sucursales[0]?.id ?? null,
           orderCutoffs: {
             coloniaAvellaneda: "Solicitar idealmente antes de las 08:00 (como máximo 08:30); luego puede pasar al día siguiente.",
             sanBenito: "Solicitar idealmente antes de las 08:00 (como máximo 08:30); luego puede pasar al día siguiente.",
