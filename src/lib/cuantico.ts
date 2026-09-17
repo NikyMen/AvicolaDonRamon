@@ -15,12 +15,41 @@ function stringValue(row: CuanticoProduct, ...keys: string[]): string | undefine
   return undefined;
 }
 
-function priceValue(row: CuanticoProduct): number | undefined {
-  const value = stringValue(row, "precio", "Precio", "price", "precio_venta", "PrecioVenta", "precio_final", "PrecioFinal");
+export function parseCuanticoPrice(raw: unknown): number | undefined {
+  if (typeof raw === "number") return Number.isFinite(raw) && raw >= 0 ? Math.round(raw) : undefined;
+  const value = typeof raw === "string" ? raw.trim() : undefined;
   if (!value) return undefined;
-  const normalized = value.replace(/\./g, "").replace(",", ".");
+
+  const normalizedValue = value.replace(/\s/g, "");
+  let normalized: string;
+
+  if (normalizedValue.includes(",")) {
+    // 3.600,00 -> 3600; 817,50 -> 817.50
+    normalized = normalizedValue.includes(".")
+      ? normalizedValue.replace(/\./g, "").replace(",", ".")
+      : normalizedValue.replace(",", ".");
+  } else if (/^\d+\.\d{3}$/.test(normalizedValue)) {
+    // 3.600 is a thousands separator when there are exactly three digits.
+    normalized = normalizedValue.replace(".", "");
+  } else {
+    // 817.0000 and 3600.00 are decimal values, not thousands separators.
+    normalized = normalizedValue;
+  }
+
   const price = Number(normalized);
-  return Number.isFinite(price) ? Math.round(price) : undefined;
+  return Number.isFinite(price) && price >= 0 ? Math.round(price) : undefined;
+}
+
+function priceValue(row: CuanticoProduct): number | undefined {
+  const raw = row.precio ?? row.Precio ?? row.price ?? row.precio_venta ?? row.PrecioVenta ?? row.precio_final ?? row.PrecioFinal;
+  return parseCuanticoPrice(raw);
+}
+
+function stockValue(row: CuanticoProduct): number | undefined {
+  const raw = row.stock ?? row.Stock ?? row.stock_actual ?? row.StockActual ?? row.existencias ?? row.Existencias;
+  if (raw === undefined || raw === null || String(raw).trim() === "") return undefined;
+  const stock = Number(String(raw).replace(",", "."));
+  return Number.isFinite(stock) && stock >= 0 ? Math.floor(stock) : undefined;
 }
 
 function rowsFromResponse(value: unknown): CuanticoProduct[] {
@@ -44,24 +73,36 @@ export async function syncCuanticoProducts(options: { fecha?: string } = {}) {
   const rows = rowsFromResponse(await response.json());
   let created = 0;
   let updated = 0;
+  let skipped = 0;
+  let zeroPrice = 0;
   const localProducts = await listProducts();
 
   for (const row of rows) {
     const erpId = stringValue(row, "id_erp", "IdErp", "id_producto", "IdProducto", "id", "codigo");
     const name = stringValue(row, "nombre", "Nombre", "name", "descripcion", "Descripcion", "detalle");
     const price = priceValue(row);
-    if (!erpId || !name || price === undefined) continue;
+    if (!erpId || !name || price === undefined) {
+      skipped++;
+      continue;
+    }
+    if (price === 0) {
+      // A zero from the ERP is not a valid sale price. Keep an existing
+      // verified price untouched and report the row for manual review.
+      zeroPrice++;
+      skipped++;
+      continue;
+    }
     const id = `cuantico-${erpId}`;
     const category: Category = "cortes";
-    const input = { name, description: name, price, category, image: "", available: true, stock: 50 };
     const existing = localProducts.find((product) => product.id === id);
+    const stock = stockValue(row);
     if (existing) {
-      await updateProduct(id, input);
+      await updateProduct(id, { name, description: name, price, category, image: "", available: true, ...(stock === undefined ? {} : { stock }) });
       updated++;
     } else {
-      await createProduct({ id, ...input });
+      await createProduct({ id, name, description: name, price, category, image: "", available: price > 0, stock: stock ?? 0 });
       created++;
     }
   }
-  return { received: rows.length, created, updated };
+  return { received: rows.length, created, updated, skipped, zeroPrice };
 }

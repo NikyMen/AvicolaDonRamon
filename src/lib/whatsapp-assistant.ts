@@ -3,7 +3,7 @@ import "server-only";
 import { hasDatabase, prisma } from "./prisma";
 import { NoDatabaseError } from "./repo";
 import { normalizePhone } from "./phone";
-import type { WhatsappContact, WhatsappKnowledge } from "./types";
+import type { Product, WhatsappContact, WhatsappKnowledge } from "./types";
 
 export const WHATSAPP_SETTINGS_ID = "main";
 
@@ -50,6 +50,29 @@ function searchTerms(value: string): string[] {
       .split(" ")
       .filter((term) => term.length >= 3 && !SEARCH_STOP_WORDS.has(term))
   )].slice(0, 24);
+}
+
+export function selectRelevantWhatsappProducts(
+  products: Product[],
+  message: string,
+  options: { maxProducts?: number } = {}
+): Product[] {
+  const terms = searchTerms(message);
+  const isCatalogRequest = /\blista\b|\bcatalogo\b|\bcatalog\b|\btodos\b|\bproductos\b|\bprecios\b|\bque tienen\b/.test(
+    searchable(message)
+  );
+  const maxProducts = options.maxProducts ?? (isCatalogRequest ? 60 : 30);
+  const ranked = products
+    .filter((product) => product.available)
+    .map((product, index) => {
+      const text = searchable(`${product.name} ${product.category} ${product.description}`);
+      const score = terms.reduce((total, term) => total + (text.includes(term) ? 1 : 0), 0);
+      return { product, index, score };
+    })
+    .filter(({ score }) => isCatalogRequest || score > 0)
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+
+  return ranked.slice(0, maxProducts).map(({ product }) => product);
 }
 
 /**
