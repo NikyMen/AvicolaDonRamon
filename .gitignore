@@ -36,6 +36,7 @@ pnpm-debug.log*
 .vercel/
 .swc/
 coverage/
+/precios-respaldo*.json
 
 # sistema operativo / editor
 Thumbs.db

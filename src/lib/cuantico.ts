@@ -2,6 +2,7 @@ import "server-only";
 
 import { createProduct, listProducts, updateProduct } from "@/lib/repo";
 import type { Category } from "@/lib/types";
+import { cuanticoPricePolicy, validatedCuanticoPrice } from "@/lib/cuantico-pricing";
 
 const ENDPOINT = "https://cuantico.tech/ws_get_productos/";
 
@@ -62,6 +63,7 @@ function rowsFromResponse(value: unknown): CuanticoProduct[] {
 }
 
 export async function syncCuanticoProducts(options: { fecha?: string } = {}) {
+  const policy = cuanticoPricePolicy(process.env);
   const idEmpresa = process.env.CUANTICO_ID_EMPRESA;
   const token = process.env.CUANTICO_TOKEN;
   if (!idEmpresa || !token) throw new Error("Faltan CUANTICO_ID_EMPRESA y CUANTICO_TOKEN.");
@@ -76,16 +78,20 @@ export async function syncCuanticoProducts(options: { fecha?: string } = {}) {
   let skipped = 0;
   let zeroPrice = 0;
   const localProducts = await listProducts();
+  const byId = new Map(localProducts.map((product) => [product.id, product]));
+  const pending: { id: string; name: string; price: number; stock: number | undefined }[] = [];
+  const rejected: string[] = [];
+  const seen = new Set<string>();
 
   for (const row of rows) {
     const erpId = stringValue(row, "id_erp", "IdErp", "id_producto", "IdProducto", "id", "codigo");
     const name = stringValue(row, "nombre", "Nombre", "name", "descripcion", "Descripcion", "detalle");
-    const price = priceValue(row);
-    if (!erpId || !name || price === undefined) {
+    const rawPrice = priceValue(row);
+    if (!erpId || !name || rawPrice === undefined) {
       skipped++;
       continue;
     }
-    if (price === 0) {
+    if (rawPrice === 0) {
       // A zero from the ERP is not a valid sale price. Keep an existing
       // verified price untouched and report the row for manual review.
       zeroPrice++;
@@ -93,9 +99,26 @@ export async function syncCuanticoProducts(options: { fecha?: string } = {}) {
       continue;
     }
     const id = `cuantico-${erpId}`;
+    if (seen.has(id)) {
+      rejected.push(`${id}: ID duplicado en la fuente.`);
+      continue;
+    }
+    seen.add(id);
+    try {
+      const price = validatedCuanticoPrice(rawPrice, byId.get(id)?.price, policy);
+      pending.push({ id, name, price, stock: stockValue(row) });
+    } catch (error) {
+      rejected.push(`${id}: ${error instanceof Error ? error.message : 'Precio inválido.'}`);
+    }
+  }
+  // Validar el lote completo antes de tocar datos: una escala inesperada no
+  // debe dejar miles de precios parcialmente actualizados.
+  if (rejected.length) {
+    throw new Error(`Sincronización bloqueada sin cambios: ${rejected.length} precios requieren revisión. ${rejected.slice(0, 10).join(' | ')}`);
+  }
+  for (const { id, name, price, stock } of pending) {
     const category: Category = "cortes";
-    const existing = localProducts.find((product) => product.id === id);
-    const stock = stockValue(row);
+    const existing = byId.get(id);
     if (existing) {
       await updateProduct(id, { name, description: name, price, category, image: "", available: true, ...(stock === undefined ? {} : { stock }) });
       updated++;
