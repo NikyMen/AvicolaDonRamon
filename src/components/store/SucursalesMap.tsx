@@ -2,13 +2,17 @@
 
 import { useState } from "react";
 import { MapPin, Phone, ExternalLink } from "lucide-react";
-import { sucursales } from "@/lib/sucursales";
+import type { Sucursal } from "@/lib/sucursales";
 import { cn } from "@/lib/cn";
 
-export function SucursalesMap({ initialId }: { initialId?: string }) {
+export function SucursalesMap({ initialId, branches }: { initialId?: string; branches: Sucursal[] }) {
   const [selected, setSelected] = useState(
-    () => sucursales.find((s) => s.id === initialId) ?? sucursales[0]
+    () => branches.find((s) => s.id === initialId) ?? branches[0]
   );
+
+  if (!selected) {
+    return <p className="rounded-2xl bg-white p-6 text-center text-sm text-brand-ink/60">No hay sucursales activas disponibles.</p>;
+  }
 
   const embedSrc = `https://www.google.com/maps?q=${encodeURIComponent(selected.mapsQuery)}&z=15&output=embed`;
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selected.mapsQuery)}`;
@@ -17,7 +21,7 @@ export function SucursalesMap({ initialId }: { initialId?: string }) {
     <div className="grid gap-4 md:grid-cols-[320px_1fr] md:gap-6">
       {/* Lista de sucursales */}
       <ul className="no-scrollbar flex gap-2 overflow-x-auto md:max-h-[600px] md:flex-col md:overflow-y-auto">
-        {sucursales.map((s) => {
+        {branches.map((s) => {
           const active = s.id === selected.id;
           return (
             <li key={s.id} className="shrink-0 md:shrink">

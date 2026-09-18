@@ -1,6 +1,11 @@
 export interface Sucursal {
   id: string;
   name: string;
+  street: string;
+  number: string;
+  region: string;
+  active: boolean;
+  mapsUrl?: string;
   address: string;
   /** Texto de búsqueda usado para ubicar la sucursal en Google Maps */
   mapsQuery: string;
@@ -18,6 +23,10 @@ export const sucursales: Sucursal[] = [
   {
     id: "don-ramon",
     name: "Avícola Don Ramón",
+    street: "Avenida Las Américas",
+    number: "4117",
+    region: "Paraná, Entre Ríos",
+    active: true,
     address: "Avenida Las Américas 4117, Paraná, Entre Ríos",
     mapsQuery: "Avenida Las Américas 4117, Paraná, Entre Ríos, Argentina",
     lat: -31.7770076,

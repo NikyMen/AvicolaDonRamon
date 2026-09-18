@@ -22,7 +22,7 @@ export interface DashboardSummary {
   topProducts: { name: string; sold: number; pct: number }[];
 }
 
-export type DashboardPeriod = "yesterday" | "today" | "7d" | "14d";
+export type DashboardPeriod = "yesterday" | "today" | "7d" | "14d" | "30d" | "60d";
 
 interface DashboardOrder {
   date: Date;
@@ -39,6 +39,8 @@ const PERIOD_OFFSETS: Record<DashboardPeriod, { from: number; to: number }> = {
   today: { from: 0, to: 1 },
   "7d": { from: -6, to: 1 },
   "14d": { from: -13, to: 1 },
+  "30d": { from: -29, to: 1 },
+  "60d": { from: -59, to: 1 },
 };
 
 function argentinaDateParts(date: Date): { year: number; month: number; day: number } {
@@ -166,7 +168,7 @@ function buildSummary(
   };
 }
 
-export async function getDashboardSummary(period: DashboardPeriod = "today"): Promise<DashboardSummary> {
+export async function getDashboardSummary(period: DashboardPeriod = "30d"): Promise<DashboardSummary> {
   const offsets = PERIOD_OFFSETS[period];
   const periodDays = offsets.to - offsets.from;
   const from = argentinaDayStart(offsets.from - periodDays);

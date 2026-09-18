@@ -1,4 +1,5 @@
 import { listCoupons, listProducts } from "@/lib/repo";
+import { canManageCoupons } from "@/lib/auth/coupon-access";
 import { requirePerm } from "@/lib/auth/permissions";
 import { CouponsManager } from "./CouponsManager";
 
@@ -10,5 +11,6 @@ export default async function Page() {
     listCoupons(),
     listProducts({ available: true }),
   ]);
-  return <CouponsManager coupons={coupons} products={products} />;
+  const canManage = await canManageCoupons();
+  return <CouponsManager coupons={coupons} products={products} canManageCoupons={canManage} />;
 }

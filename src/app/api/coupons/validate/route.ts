@@ -6,16 +6,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  code: z.string().trim().min(3),
+  code: z.string().trim().min(3).max(30).regex(/^[A-Za-z0-9_-]+$/),
   items: z.array(z.object({ productId: z.string().min(1), qty: z.number().int().positive() })).min(1),
   // Necesario para los códigos de bienvenida: valen una vez por número.
   telefono: z.string().trim().optional(),
+  fechaEntrega: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export async function POST(req: Request) {
   try {
     const body = schema.parse(await req.json());
-    return NextResponse.json(await quoteCoupon(body.code, body.items, body.telefono));
+    return NextResponse.json(await quoteCoupon(body.code, body.items, body.telefono, body.fechaEntrega));
   } catch (e) {
     const message = e instanceof CouponError ? e.message : "No se pudo validar el cupón.";
     return NextResponse.json({ error: message }, { status: 400 });

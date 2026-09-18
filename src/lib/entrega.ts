@@ -1,3 +1,5 @@
+import { getDeliveryLocality, DEFAULT_DELIVERY_LOCALITY_ID, type DeliveryLocalityId } from "@/lib/geo";
+
 /**
  * Reglas y textos de la entrega a domicilio (única modalidad: no hay retiro
  * por sucursal). Centralizado acá para que el carrito, el checkout, el panel
@@ -63,15 +65,26 @@ function argentinaDateTime(now: Date): ArgentinaDateTime {
   };
 }
 
-function isDeliveryDay(date: Date, slotId: DeliverySlotId): boolean {
+
+function isDeliveryDay(
+  date: Date,
+  slotId: DeliverySlotId,
+  localityId: DeliveryLocalityId
+): boolean {
   const weekday = date.getUTCDay();
+  const localityDays = getDeliveryLocality(localityId).morningDays;
+  if (localityDays) return slotId === "08-12" && localityDays.includes(weekday);
   if (weekday === 0) return false;
   return slotId === "08-12" || weekday !== 6;
 }
 
-function firstDeliveryDay(date: Date, slotId: DeliverySlotId): Date {
+function firstDeliveryDay(
+  date: Date,
+  slotId: DeliverySlotId,
+  localityId: DeliveryLocalityId
+): Date {
   const target = new Date(date);
-  while (!isDeliveryDay(target, slotId)) target.setUTCDate(target.getUTCDate() + 1);
+  while (!isDeliveryDay(target, slotId, localityId)) target.setUTCDate(target.getUTCDate() + 1);
   return target;
 }
 
@@ -111,18 +124,22 @@ export function deliveryEstimateLabel(
  * - Tarde: se entrega de lunes a viernes; el turno del día cierra a las 12:00.
  * - Al alcanzar cada corte, esa franja pasa al próximo día disponible.
  */
-export function estimatedDeliveryOptions(now = new Date()): EstimatedDeliveryOption[] {
+export function estimatedDeliveryOptions(
+  now = new Date(),
+  localityId: DeliveryLocalityId = DEFAULT_DELIVERY_LOCALITY_ID
+): EstimatedDeliveryOption[] {
   const local = argentinaDateTime(now);
   const today = new Date(Date.UTC(local.year, local.month - 1, local.day));
   const minutes = local.hour * 60 + local.minute;
 
-  const options = DELIVERY_SLOTS.map((slot) => {
+  const slots = !getDeliveryLocality(localityId).morningDays ? DELIVERY_SLOTS : DELIVERY_SLOTS.slice(0, 1);
+  const options = slots.map((slot) => {
     const candidate = new Date(today);
     // La mañana siempre se agenda desde el día siguiente. La tarde puede ser
     // el mismo día hasta las 12:00. Después de cada corte se avanza un día.
     if (slot.id === "08-12") candidate.setUTCDate(candidate.getUTCDate() + 1);
     if (minutes >= slot.cutoffMinutes) candidate.setUTCDate(candidate.getUTCDate() + 1);
-    const target = firstDeliveryDay(candidate, slot.id);
+    const target = firstDeliveryDay(candidate, slot.id, localityId);
     const date = dateOnly(target);
     return {
       key: `${slot.id}:${date}`,
@@ -134,7 +151,12 @@ export function estimatedDeliveryOptions(now = new Date()): EstimatedDeliveryOpt
 
   // Los viernes, desde el cierre del turno de la tarde hasta las 21:00,
   // se ofrecen dos mañanas: sábado y lunes.
-  if (today.getUTCDay() === 5 && minutes >= 12 * 60 && minutes < 21 * 60) {
+  if (
+    !getDeliveryLocality(localityId).morningDays &&
+    today.getUTCDay() === 5 &&
+    minutes >= 12 * 60 &&
+    minutes < 21 * 60
+  ) {
     const saturdayMorning = options[0];
     const mondayDate = options[1].date;
     return [

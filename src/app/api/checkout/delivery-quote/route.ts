@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { isInsideParana } from "@/lib/geo";
+import { isInsideDeliveryLocality, isDeliveryLocality } from "@/lib/geo";
 import { quoteDelivery } from "@/lib/repo";
 
 export const runtime = "nodejs";
@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const bodySchema = z.object({
   lat: z.number(),
   lng: z.number(),
+  localidad: z.custom<import("@/lib/geo").DeliveryLocalityId>(isDeliveryLocality, "Localidad no habilitada.").default("parana"),
   fechaEntrega: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
@@ -25,8 +26,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Datos de envio incompletos." }, { status: 400 });
   }
 
-  const { lat, lng, fechaEntrega } = parsed.data;
-  if (!isInsideParana(lat, lng)) {
+  const { lat, lng, localidad, fechaEntrega } = parsed.data;
+  if (!isInsideDeliveryLocality(localidad, lat, lng)) {
     return NextResponse.json(
       { error: "El punto esta fuera de la zona de envio." },
       { status: 400 }

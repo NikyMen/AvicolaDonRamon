@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { getSession, type Session } from "./session";
-import { hasPermission } from "./perm-modules";
+import { ALL_PERMS, hasPermission } from "./perm-modules";
 
 export { ALL_PERMS, PERM_MODULES, PERM_KEYS, hasPermission } from "./perm-modules";
 export type { PermModule } from "./perm-modules";
@@ -30,4 +30,14 @@ export async function requirePerm(key: string): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "admin") redirect(`/admin/login?next=/admin/${key}`);
   if (!sessionHasPerm(session, key)) redirect(`/admin?denied=${key}`);
+}
+
+/**
+ * Guard para Server Actions que afectan a todas las sesiones del panel
+ * (ej. módulos visibles globalmente): solo el super-admin puede ejecutarlas.
+ */
+export async function assertSuperAdmin(): Promise<string | null> {
+  const session = await getSession();
+  if (!session || session.role !== "admin") return "No autorizado.";
+  return session.perms?.includes(ALL_PERMS) ? null : "Solo el administrador puede cambiar esta configuración.";
 }

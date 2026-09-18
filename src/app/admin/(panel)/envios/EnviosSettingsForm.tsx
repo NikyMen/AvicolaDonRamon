@@ -27,6 +27,19 @@ export function EnviosSettingsForm({
           </div>
         </div>
 
+        <div className="mb-4 grid gap-4 md:grid-cols-2">
+          <label className="block text-sm font-semibold">
+            Modo de cobro
+            <select name="pricingMode" defaultValue={settings.pricingMode} className="mt-1 w-full rounded-xl border border-black/10 p-3">
+              <option value="flat">Tarifa fija</option>
+              <option value="distance">Por kilómetro</option>
+            </select>
+          </label>
+          <label className="block text-sm font-semibold">
+            Tarifa fija ($)
+            <input name="flatFee" type="number" min="0" step="1" required defaultValue={settings.flatFee} className="mt-1 w-full rounded-xl border border-black/10 p-3" />
+          </label>
+        </div>
         <div className="grid gap-4 md:grid-cols-[1fr_1.2fr]">
           <label className="block">
             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-brand-ink/55">

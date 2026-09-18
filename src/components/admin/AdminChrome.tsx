@@ -15,10 +15,12 @@ import {
   Sparkles,
   BrainCircuit,
   LineChart,
+  Store,
+  Bell,
+  ChevronDown,
   Menu,
   X,
   Settings,
-  ChevronDown,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { ConsultoriaDigitalLogo } from "@/components/ConsultoriaDigitalLogo";
@@ -26,12 +28,6 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
 import { cn } from "@/lib/cn";
 import { WhatsAppIcon } from "@/components/admin/WhatsAppIcon";
 import { hasPermission } from "@/lib/auth/perm-modules";
-import {
-  ADMIN_PREFERENCES_EVENT,
-  DEFAULT_HIDDEN_MODULES,
-  HIDDEN_MODULES_KEY,
-  readHiddenModules,
-} from "@/lib/admin-preferences";
 
 // `perm` = clave del módulo (PERM_MODULES). Sin `perm` el ítem es visible
 // para cualquier sesión de panel (ej. Dashboard).
@@ -39,6 +35,7 @@ const nav = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, hideKey: "dashboard" },
   { href: "/admin/entregas", label: "Entregas", icon: Truck, perm: "entregas", hideKey: "entregas" },
   { href: "/admin/envios", label: "Envios", icon: Route, perm: "envios", hideKey: "envios" },
+  { href: "/admin/sucursales", label: "Sucursales", icon: Store, perm: "sucursales", hideKey: "sucursales" },
   { href: "/admin/productos", label: "Stock", icon: Package, perm: "productos", hideKey: "productos" },
   { href: "/admin/clientes", label: "Clientes", icon: Users, perm: "clientes", hideKey: "clientes" },
   { href: "/admin/equipo", label: "Equipo", icon: UserCog, perm: "equipo", hideKey: "equipo" },
@@ -50,31 +47,19 @@ const nav = [
   { href: "/admin/asistente", label: "Asistente WhatsApp", icon: WhatsAppIcon, perm: "asistente", hideKey: "asistente" },
 ];
 
-function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () => void }) {
+function NavContent({
+  perms,
+  hiddenModules,
+  onNavigate,
+}: {
+  perms: string[];
+  hiddenModules: string[];
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const [hiddenModules, setHiddenModules] = useState<string[]>([...DEFAULT_HIDDEN_MODULES]);
-
-  useEffect(() => {
-    const syncHiddenModules = () => {
-      try {
-        setHiddenModules(readHiddenModules());
-      } catch {}
-    };
-    try {
-      syncHiddenModules();
-    } catch {
-      // Se mantienen los valores por defecto si el navegador bloquea localStorage.
-    }
-    window.addEventListener("storage", syncHiddenModules);
-    window.addEventListener(ADMIN_PREFERENCES_EVENT, syncHiddenModules);
-    return () => {
-      window.removeEventListener("storage", syncHiddenModules);
-      window.removeEventListener(ADMIN_PREFERENCES_EVENT, syncHiddenModules);
-    };
-  }, []);
 
   const items = nav.filter(
-    (item) => (!item.perm || hasPermission(perms, item.perm)) && !hiddenModules.includes(item.hideKey)
+    (item) => (!item.perm || hasPermission(perms, item.perm)) && (!item.hideKey || !hiddenModules.includes(item.hideKey))
   );
 
   return (
@@ -102,19 +87,6 @@ function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () =>
         })}
       </nav>
       <div className="space-y-1 border-t border-white/10 p-3">
-        <Link
-          href="/admin/config"
-          onClick={onNavigate}
-          className={cn(
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition",
-            pathname.startsWith("/admin/config")
-              ? "bg-brand-red text-white"
-              : "text-white/65 hover:bg-white/10 hover:text-white"
-          )}
-        >
-          <Settings size={18} />
-          Configuración
-        </Link>
         <LogoutButton
           redirectTo="/admin/login"
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/65 hover:bg-white/10 hover:text-white"
@@ -126,47 +98,60 @@ function NavContent({ perms, onNavigate }: { perms: string[]; onNavigate?: () =>
 
 export function AdminChrome({
   perms,
+  hiddenModules,
   name,
   isSuperAdmin,
+  notifications,
   children,
 }: {
   perms: string[];
+  hiddenModules: string[];
   name: string;
   isSuperAdmin: boolean;
+  notifications: {
+    id: string;
+    href: string;
+    title: string;
+    description: string;
+  }[];
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [accountOpen, setAccountOpen] = useState(false);
-  const accountRef = useRef<HTMLDivElement>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsRead, setNotificationsRead] = useState(false);
+  const menusRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const closeMenus = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!accountRef.current?.contains(target)) setAccountOpen(false);
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setAccountOpen(false);
-      }
-    };
+    if (!notificationsOpen && !profileOpen) return;
 
-    document.addEventListener("pointerdown", closeMenus);
+    function closeMenus(event: MouseEvent) {
+      if (!menusRef.current?.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+        setProfileOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setNotificationsOpen(false);
+        setProfileOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeMenus);
     document.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.removeEventListener("pointerdown", closeMenus);
+      document.removeEventListener("mousedown", closeMenus);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, []);
-
-  const toggleAccount = () => {
-    setAccountOpen((current) => !current);
-  };
+  }, [notificationsOpen, profileOpen]);
 
   return (
     <div className="flex min-h-screen bg-[#f1f0ee]">
       {/* Sidebar de escritorio (estática) */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-brand-ink text-white md:flex">
-        <NavContent perms={perms} />
+        <NavContent perms={perms} hiddenModules={hiddenModules} />
       </aside>
 
       {/* Drawer móvil + backdrop */}
@@ -191,71 +176,121 @@ export function AdminChrome({
           >
             <X size={20} />
           </button>
-          <NavContent perms={perms} onNavigate={() => setOpen(false)} />
+          <NavContent perms={perms} hiddenModules={hiddenModules} onNavigate={() => setOpen(false)} />
         </aside>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar */}
-        <header className="sticky top-0 z-[60] flex items-center justify-end gap-2 border-b border-black/5 bg-white px-4 py-3 md:gap-3 md:px-6">
-          <button
-            onClick={() => setOpen(true)}
-            aria-label="Abrir menú"
-            className="mr-auto shrink-0 rounded-lg p-2 text-brand-ink/60 hover:bg-black/5 md:hidden"
-          >
-            <Menu size={20} />
-          </button>
-          <div className="flex items-center gap-3">
-            <div ref={accountRef} className="relative">
+        <header className="sticky top-0 z-[60] flex items-center justify-between gap-4 border-b border-black/5 bg-white px-4 py-3 md:px-6">
+          <div className="flex items-center">
+            <button
+              onClick={() => setOpen(true)}
+              aria-label="Abrir menú"
+              className="shrink-0 rounded-lg p-2 text-brand-ink/60 hover:bg-black/5 md:hidden"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
+          <div ref={menusRef} className="flex items-center gap-2 sm:gap-3">
+            <div className="relative">
               <button
-                onClick={toggleAccount}
-                aria-label="Abrir menú de usuario"
-                aria-expanded={accountOpen}
-                aria-controls="admin-account-menu"
-                className="flex items-center gap-2 rounded-xl px-1.5 py-1 transition hover:bg-black/5 sm:px-2"
+                type="button"
+                aria-label="Abrir notificaciones"
+                aria-expanded={notificationsOpen}
+                onClick={() => {
+                  setNotificationsOpen((current) => !current);
+                  setProfileOpen(false);
+                  setNotificationsRead(true);
+                }}
+                className="relative rounded-lg p-2 text-brand-ink/60 transition hover:bg-black/5 hover:text-brand-ink"
               >
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-red text-sm font-bold text-white">
+                <Bell size={20} />
+                {!notificationsRead && notifications.length > 0 ? (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-red px-1 text-[10px] font-bold leading-none text-white">
+                    {notifications.length}
+                  </span>
+                ) : null}
+              </button>
+
+              {notificationsOpen ? (
+                <div className="absolute right-0 top-[calc(100%+0.75rem)] w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-black/10 bg-white shadow-xl">
+                  <div className="border-b border-black/5 px-4 py-3">
+                    <p className="font-semibold text-brand-ink">Notificaciones</p>
+                    <p className="text-xs text-brand-ink/50">Avisos que requieren tu atención</p>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto p-2">
+                    {notifications.length > 0 ? (
+                      notifications.map((notification) => (
+                        <Link
+                          key={notification.id}
+                          href={notification.href}
+                          onClick={() => setNotificationsOpen(false)}
+                          className="block rounded-lg px-3 py-2.5 transition hover:bg-brand-cream"
+                        >
+                          <p className="text-sm font-semibold text-brand-ink">{notification.title}</p>
+                          <p className="mt-0.5 text-xs leading-relaxed text-brand-ink/55">
+                            {notification.description}
+                          </p>
+                        </Link>
+                      ))
+                    ) : (
+                      <p className="px-3 py-6 text-center text-sm text-brand-ink/50">
+                        No hay avisos pendientes.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Abrir menú de administrador"
+                aria-expanded={profileOpen}
+                onClick={() => {
+                  setProfileOpen((current) => !current);
+                  setNotificationsOpen(false);
+                }}
+                className="flex items-center gap-2 rounded-lg p-1 pr-2 text-left transition hover:bg-black/5"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-red text-sm font-bold text-white">
                   {name.charAt(0).toUpperCase()}
-                </div>
-                <div className="hidden text-left text-sm leading-tight sm:block">
-                  <p className="font-semibold text-brand-ink">{name}</p>
-                  <p className="text-xs text-brand-ink/50">
+                </span>
+                <span className="hidden text-sm leading-tight sm:block">
+                  <span className="block font-semibold text-brand-ink">{name}</span>
+                  <span className="block text-xs text-brand-ink/50">
                     {isSuperAdmin ? "Administrador" : "Empleado"} · Entre Ríos
-                  </p>
-                </div>
+                  </span>
+                </span>
                 <ChevronDown
                   size={16}
                   className={cn(
-                    "text-brand-ink/45 transition-transform",
-                    accountOpen && "rotate-180"
+                    "hidden text-brand-ink/45 transition-transform sm:block",
+                    profileOpen && "rotate-180"
                   )}
                 />
               </button>
 
-              {accountOpen && (
-                <div
-                  id="admin-account-menu"
-                  className="absolute right-0 top-full mt-2 w-56 overflow-hidden rounded-xl border border-black/10 bg-white p-1.5 shadow-xl"
-                >
+              {profileOpen ? (
+                <div className="absolute right-0 top-[calc(100%+0.75rem)] w-56 overflow-hidden rounded-xl border border-black/10 bg-white p-2 shadow-xl">
                   <div className="border-b border-black/5 px-3 py-2 sm:hidden">
-                    <p className="text-sm font-semibold text-brand-ink">{name}</p>
+                    <p className="truncate text-sm font-semibold text-brand-ink">{name}</p>
                     <p className="text-xs text-brand-ink/50">
                       {isSuperAdmin ? "Administrador" : "Empleado"} · Entre Ríos
                     </p>
                   </div>
                   <Link
                     href="/admin/config"
-                    onClick={() => setAccountOpen(false)}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-ink/70 transition hover:bg-brand-cream hover:text-brand-ink"
+                    onClick={() => setProfileOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-ink/70 transition hover:bg-brand-cream hover:text-brand-ink"
                   >
                     <Settings size={18} /> Configuración
                   </Link>
-                  <LogoutButton
-                    redirectTo="/admin/login"
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-red transition hover:bg-brand-red/5"
-                  />
+                  <LogoutButton redirectTo="/admin/login" className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-red transition hover:bg-brand-red/5 disabled:opacity-50" />
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </header>

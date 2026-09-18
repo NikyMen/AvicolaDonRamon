@@ -200,6 +200,76 @@ body {
   animation-fill-mode: forwards;
 }
 
+@keyframes coupon-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.coupon-overlay {
+  animation: coupon-overlay-in 0.18s ease-out both;
+}
+
+@keyframes coupon-modal-in {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.coupon-modal-in {
+  animation: coupon-modal-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes coupon-popover-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.coupon-popover-in {
+  transform-origin: top left;
+  animation: coupon-popover-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes checkout-map-reveal {
+  0% {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-6px);
+  }
+  100% {
+    opacity: 1;
+    max-height: 560px;
+    transform: translateY(0);
+  }
+}
+.checkout-map-reveal {
+  position: relative;
+  z-index: 0;
+  overflow: hidden;
+  transform-origin: top;
+  animation: checkout-map-reveal 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkout-map-reveal {
+    animation: none;
+    opacity: 1;
+    max-height: none;
+    transform: none;
+  }
+}
+
 @layer components {
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-red px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-dark active:scale-[0.98];

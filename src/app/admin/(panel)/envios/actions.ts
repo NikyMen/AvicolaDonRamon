@@ -16,6 +16,12 @@ export async function saveEnvios(
   const denied = await assertPerm("envios");
   if (denied) return { error: denied };
 
+  const pricingMode = formData.get("pricingMode");
+  const flatFee = Number(formData.get("flatFee"));
+  if ((pricingMode !== "flat" && pricingMode !== "distance") || !Number.isSafeInteger(flatFee) || flatFee < 0) {
+    return { error: "Revisá el modo y el importe fijo de envío." };
+  }
+
   const pricePerKm = Number(formData.get("pricePerKm"));
   if (!Number.isFinite(pricePerKm) || pricePerKm < 0) {
     return { error: "Ingresá un precio por kilometro valido." };
@@ -23,6 +29,8 @@ export async function saveEnvios(
 
   try {
     await saveDeliverySettings({
+      pricingMode,
+      flatFee,
       pricePerKm,
       freeAllSlots: formData.get("freeAllSlots") === "on",
       freeSaturday: formData.get("freeSaturday") === "on",

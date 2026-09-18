@@ -9,9 +9,9 @@ import {
   DeliveryDispatchConflictError,
   dispatchDeliveries,
   getStaff,
+  listSucursales,
   NoDatabaseError,
 } from "@/lib/repo";
-import { sucursales } from "@/lib/sucursales";
 
 export interface CerrarPedidosState {
   ok?: boolean;
@@ -36,7 +36,7 @@ export async function cerrarPedidosEnvio(
   const denied = await assertPerm("entregas");
   if (denied) return { error: denied };
 
-  if (!sucursales.some((s) => s.id === sucursalId)) {
+  if (!(await listSucursales()).some((s) => s.id === sucursalId)) {
     return { error: "Elegí la sucursal desde la que sale el reparto." };
   }
   if (!Array.isArray(orderIds) || orderIds.length === 0) {

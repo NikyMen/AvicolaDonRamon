@@ -11,10 +11,16 @@ import {
   CouponError,
   NoDatabaseError,
   OutOfStockError,
+  listSucursales,
   isRuntimeProductArchived,
 } from "@/lib/repo";
 import { hasDatabase } from "@/lib/prisma";
-import { isInsideParana, MIN_ENVIO_TOTAL } from "@/lib/geo";
+import {
+  getDeliveryLocality,
+  isDeliveryLocality,
+  isInsideDeliveryLocality,
+  MIN_ENVIO_TOTAL,
+} from "@/lib/geo";
 import {
   DELIVERY_SLOTS,
   deliveryEstimateLabel,
@@ -42,12 +48,17 @@ const bodySchema = z.object({
     )
     .min(1),
   direccion: z.string().optional(),
+  entrega: z.enum(["envio", "retiro"]).default("envio"),
+  sucursalId: z.string().min(1).optional(),
+  localidad: z.custom<import("@/lib/geo").DeliveryLocalityId>(isDeliveryLocality, "Localidad no habilitada.").default("parana"),
   lat: z.number().optional(),
   lng: z.number().optional(),
-  franjaHoraria: z.enum(DELIVERY_SLOTS.map((s) => s.id) as [string, ...string[]], {
-    message: "Elegí el rango horario en el que querés recibir el pedido.",
-  }),
-  fechaEntrega: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha de entrega no es válida."),
+  franjaHoraria: z
+    .enum(DELIVERY_SLOTS.map((s) => s.id) as [string, ...string[]], {
+      message: "Elegí el rango horario en el que querés recibir el pedido.",
+    })
+    .optional(),
+  fechaEntrega: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "La fecha de entrega no es válida.").optional(),
   nombre: z.string().trim().min(2, "Decinos tu nombre."),
   telefono: z
     .string()
@@ -56,7 +67,7 @@ const bodySchema = z.object({
     // El teléfono identifica al cliente: si es inválido, la compra no se puede
     // asociar. Se valida sobre el número normalizado (sin 0, 15, +54…).
     .refine(isValidPhone, "Revisá el número de WhatsApp."),
-  couponCode: z.string().trim().min(3).optional(),
+  couponCode: z.string().trim().min(3).max(30).regex(/^[A-Za-z0-9_-]+$/).optional(),
 });
 
 /**
@@ -70,9 +81,7 @@ async function quoteFromMocks(
 ) {
   const lines = [];
   for (const i of items) {
-    if (isRuntimeProductArchived(i.productId)) {
-      throw new Error(`Producto inexistente: ${i.productId}`);
-    }
+    if (isRuntimeProductArchived(i.productId)) throw new Error(`Producto inexistente: ${i.productId}`);
     const p = await getProduct(i.productId);
     const name = p?.name ?? i.name;
     const price = p?.price ?? i.price;
@@ -138,41 +147,49 @@ export async function POST(req: NextRequest) {
   }
   const body = parsed.data;
 
-  // Validación de la entrega (siempre a domicilio). Nada de esto se confía
-  // del navegador: se revalida todo acá.
+  // La modalidad y la sucursal se vuelven a validar en el servidor.
   const direccion = body.direccion?.trim() ?? "";
-  if (direccion.length < 4) {
-    return NextResponse.json(
-      { error: "Completá la dirección de entrega (calle y altura)." },
-      { status: 400 }
+  let address: string;
+  let notes: string;
+  let originSucursalId: string | undefined;
+
+  if (body.entrega === "retiro") {
+    const branch = (await listSucursales()).find((item) => item.id === body.sucursalId);
+    if (!branch) {
+      return NextResponse.json({ error: "Elegí una sucursal disponible para retirar." }, { status: 400 });
+    }
+    address = branch.address;
+    originSucursalId = branch.id;
+    notes = `Pedido web · Mercado Pago · Retiro en ${branch.name}`;
+  } else {
+    if (direccion.length < 4) {
+      return NextResponse.json({ error: "Completá la dirección de entrega (calle y altura)." }, { status: 400 });
+    }
+    if (!body.localidad || body.lat === undefined || body.lng === undefined) {
+      return NextResponse.json({ error: "Marcá y confirmá el punto de entrega en el mapa." }, { status: 400 });
+    }
+    if (!isInsideDeliveryLocality(body.localidad, body.lat, body.lng)) {
+      return NextResponse.json(
+        { error: `El punto marcado está fuera de ${getDeliveryLocality(body.localidad).name}.` },
+        { status: 400 }
+      );
+    }
+    const locality = getDeliveryLocality(body.localidad);
+    address = body.localidad === "parana" ? direccion : `${direccion}, ${locality.searchName}`;
+    const validSchedule = estimatedDeliveryOptions(new Date(), body.localidad).some(
+      (option) => option.id === body.franjaHoraria && option.date === body.fechaEntrega
     );
+    if (!validSchedule) {
+      return NextResponse.json(
+        { error: "La fecha de entrega se actualizó. Revisá y elegí nuevamente el horario." },
+        { status: 409 }
+      );
+    }
+    const slotLabel = deliveryEstimateLabel(body.franjaHoraria, body.fechaEntrega);
+    notes =
+      `Pedido web · Mercado Pago · Localidad ${locality.name} · Entrega ${slotLabel}\n` +
+      `Mapa: https://www.google.com/maps?q=${body.lat},${body.lng}`;
   }
-  if (body.lat === undefined || body.lng === undefined) {
-    return NextResponse.json(
-      { error: "Marcá y confirmá el punto de entrega en el mapa." },
-      { status: 400 }
-    );
-  }
-  if (!isInsideParana(body.lat, body.lng)) {
-    return NextResponse.json(
-      { error: "Por el momento solo hacemos envíos dentro de la ciudad de Paraná." },
-      { status: 400 }
-    );
-  }
-  const address = direccion;
-  // El servidor vuelve a calcular la fecha con hora Argentina. Así un reloj
-  // incorrecto o una pestaña abierta durante el corte no agenda un día viejo.
-  const entregaValida = estimatedDeliveryOptions().some(
-    (opcion) =>
-      opcion.id === body.franjaHoraria && opcion.date === body.fechaEntrega
-  );
-  if (!entregaValida) {
-    return NextResponse.json(
-      { error: "La fecha de entrega se actualizó. Revisá y elegí nuevamente el horario." },
-      { status: 409 }
-    );
-  }
-  const franjaLabel = deliveryEstimateLabel(body.franjaHoraria, body.fechaEntrega);
 
   try {
     // Precios reales del catálogo + validación del mínimo de compra.
@@ -197,15 +214,14 @@ export async function POST(req: NextRequest) {
       items: body.items,
       payment: "mercadopago",
       address,
-      entrega: "envio",
+      entrega: body.entrega,
+      originSucursalId,
       deliverySlot: body.franjaHoraria,
       deliveryDate: body.fechaEntrega,
       lat: body.lat,
       lng: body.lng,
       couponCode: body.couponCode,
-      notes:
-        `Pedido web · Mercado Pago · Entrega ${franjaLabel}\n` +
-        `Mapa: https://www.google.com/maps?q=${body.lat},${body.lng}`,
+      notes,
     } as const;
     let order = await createOrder(orderInput);
 

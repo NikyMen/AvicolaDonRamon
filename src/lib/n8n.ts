@@ -48,11 +48,14 @@ function messageForOrderEvent(event: OrderEvent, order: Order): string {
   switch (event) {
     case "pedido_confirmado":
       return `✅ Recibimos tu pedido ${order.id}. Ya estamos preparándolo.${
+        order.entrega === "retiro" ? `\n🏪 Retiro en sucursal: ${order.address ?? "sucursal elegida"}.` : ""
+      }${
         deliveryEstimateLabel(order.deliverySlot, order.deliveryDate)
           ? `\n📅 Entrega estimada: ${deliveryEstimateLabel(order.deliverySlot, order.deliveryDate)}.`
           : ""
       }`;
     case "pedido_en_camino":
+      if (order.entrega === "retiro") return `✅ Tu pedido ${order.id} está listo para retirar en ${order.address ?? "la sucursal"}.`;
       return `🚚 Tu pedido está saliendo de la sucursal.\n🔐 Este es tu código: ${order.deliveryCode ?? ""}. Debés dárselo al repartidor cuando te entregue tu pedido.`;
     case "pedido_entregado":
       return `🙌 Tu pedido ${order.id} fue entregado. ¡Gracias por tu compra!`;

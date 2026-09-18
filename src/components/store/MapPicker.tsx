@@ -4,7 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { LocateFixed } from "lucide-react";
 import type { Map as LeafletMap, Marker } from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { PARANA_CENTER, isInsideParana } from "@/lib/geo";
+import {
+  DELIVERY_LOCALITIES,
+  getDeliveryLocality,
+  isInsideDeliveryLocality,
+  type DeliveryLocalityId,
+} from "@/lib/geo";
 import { AVISO_MAPA } from "@/lib/entrega";
 import { geocodeDireccion } from "@/lib/geocode";
 
@@ -21,16 +26,20 @@ type Busqueda = "idle" | "buscando" | "encontrada" | "sin-resultado";
  * `searchQuery` (la dirección escrita), la geocodifica con debounce y pre-ubica
  * el pin ahí; el cliente después lo ajusta a mano. El botón "Usar mi ubicación"
  * centra con el GPS del teléfono. Valida en vivo que el punto esté dentro de
- * la zona de reparto (ciudad de Paraná).
+ * la zona de reparto de la localidad elegida.
  */
 export function MapPicker({
   value,
   onChange,
+  localityId,
+  onLocalityChange,
   searchQuery,
   compact = false,
 }: {
   value: MapPoint | null;
   onChange: (point: MapPoint) => void;
+  localityId: DeliveryLocalityId;
+  onLocalityChange: (localityId: DeliveryLocalityId) => void;
   /** Dirección escrita por el cliente; se busca en el mapa mientras escribe. */
   searchQuery?: string;
   /** Versión chica (mapa más bajo) para ubicarlo al final del carrito. */
@@ -52,20 +61,23 @@ export function MapPicker({
       if (cancelado || !containerRef.current || mapRef.current) return;
 
       const map = L.map(containerRef.current, {
-        center: value ? [value.lat, value.lng] : [PARANA_CENTER.lat, PARANA_CENTER.lng],
-        zoom: value ? 16 : 13,
+        center: value
+          ? [value.lat, value.lng]
+          : [getDeliveryLocality(localityId).center.lat, getDeliveryLocality(localityId).center.lng],
+        zoom: value ? 16 : getDeliveryLocality(localityId).zoom,
         zoomControl: true,
         attributionControl: false,
       });
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
       }).addTo(map);
+      window.setTimeout(() => map.invalidateSize(), 340);
 
       // Pin propio (SVG inline): evita los íconos rotos del default de Leaflet
       // con bundlers y queda con los colores de la marca.
       const icon = L.divIcon({
         className: "",
-        html: `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="rgb(255,10,10)" stroke="#fff" stroke-width="1"><path d="M20 10c0 6-8 13-8 13S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="#F6B40A" stroke="none"/></svg>`,
+        html: `<svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" viewBox="0 0 24 24" fill="rgb(200,16,46)" stroke="#fff" stroke-width="1"><path d="M20 10c0 6-8 13-8 13S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="#F6B40A" stroke="none"/></svg>`,
         iconSize: [38, 38],
         iconAnchor: [19, 36],
       });
@@ -120,7 +132,7 @@ export function MapPicker({
     // límite de uso de Nominatim (1 request por segundo).
     const timer = setTimeout(() => {
       setBusqueda("buscando");
-      geocodeDireccion(q, controller.signal)
+      geocodeDireccion(q, localityId, controller.signal)
         .then((r) => {
           ultimaBusquedaRef.current = q;
           if (!r) {
@@ -141,7 +153,19 @@ export function MapPicker({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [searchQuery]);
+  }, [localityId, searchQuery]);
+
+  useEffect(() => {
+    const locality = getDeliveryLocality(localityId);
+    ultimaBusquedaRef.current = "";
+    setBusqueda("idle");
+    markerRef.current?.remove();
+    markerRef.current = null;
+    mapRef.current?.flyTo([locality.center.lat, locality.center.lng], locality.zoom, {
+      animate: true,
+      duration: 0.9,
+    });
+  }, [localityId]);
 
   const usarMiUbicacion = () => {
     setGpsError(null);
@@ -161,10 +185,38 @@ export function MapPicker({
     );
   };
 
-  const fueraDeZona = value ? !isInsideParana(value.lat, value.lng) : false;
+  const locality = getDeliveryLocality(localityId);
+  const fueraDeZona = value
+    ? !isInsideDeliveryLocality(localityId, value.lat, value.lng)
+    : false;
 
   return (
     <div className="space-y-2">
+      <div
+        className="grid grid-cols-3 gap-1 rounded-xl border border-black/10 bg-white p-1 shadow-sm"
+        role="tablist"
+        aria-label="Localidad de entrega"
+      >
+        {DELIVERY_LOCALITIES.map((option) => {
+          const active = option.id === localityId;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => onLocalityChange(option.id)}
+              className={`min-h-10 rounded-lg px-1.5 py-2 text-[10px] font-bold leading-tight transition-all duration-300 sm:text-xs ${
+                active
+                  ? "bg-brand-red text-white shadow-sm"
+                  : "text-brand-ink/60 hover:bg-brand-cream hover:text-brand-ink"
+              }`}
+            >
+              {option.name}
+            </button>
+          );
+        })}
+      </div>
       <div
         ref={containerRef}
         className={`${compact ? "h-36" : "h-52"} w-full overflow-hidden rounded-xl border ${
@@ -193,8 +245,7 @@ export function MapPicker({
       {gpsError && <p className="text-xs text-brand-red">{gpsError}</p>}
       {fueraDeZona && (
         <p className="rounded-lg bg-brand-red/10 px-3 py-2 text-xs font-semibold text-brand-red">
-          Ese punto está fuera de la ciudad de Paraná. Por el momento solo entregamos dentro
-          de la ciudad.
+          Ese punto está fuera de {locality.name}. Marcá una ubicación dentro de la localidad.
         </p>
       )}
       <p className="rounded-lg bg-brand-cream px-3 py-2 text-xs font-semibold text-brand-ink">

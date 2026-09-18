@@ -45,3 +45,34 @@ export function isInsideParana(lat: number, lng: number): boolean {
   if (lng < PARANA_BOUNDS.lngMin || lng > PARANA_BOUNDS.lngMax) return false;
   return distanceKm({ lat, lng }, PARANA_CENTER) <= MAX_KM;
 }
+
+/** Localidades habilitadas para este negocio. */
+export const DELIVERY_LOCALITIES = [{
+  id: "parana",
+  name: "Paraná",
+  searchName: "Paraná, Entre Ríos",
+  center: PARANA_CENTER,
+  radiusKm: 18,
+  zoom: 13,
+  morningDays: null as readonly number[] | null,
+}] as const;
+
+export type DeliveryLocalityId = (typeof DELIVERY_LOCALITIES)[number]["id"];
+export const DEFAULT_DELIVERY_LOCALITY_ID: DeliveryLocalityId = "parana";
+
+export function isDeliveryLocality(value: unknown): value is DeliveryLocalityId {
+  return DELIVERY_LOCALITIES.some((locality) => locality.id === value);
+}
+
+export function getDeliveryLocality(id: DeliveryLocalityId) {
+  const locality = DELIVERY_LOCALITIES.find((item) => item.id === id);
+  if (!locality) throw new Error("Localidad no habilitada.");
+  return locality;
+}
+
+export function isInsideDeliveryLocality(localityId: DeliveryLocalityId, lat: number, lng: number): boolean {
+  if (!isDeliveryLocality(localityId) || !Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if (localityId === "parana") return isInsideParana(lat, lng);
+  const locality = getDeliveryLocality(localityId);
+  return distanceKm({ lat, lng }, locality.center) <= locality.radiusKm;
+}

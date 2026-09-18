@@ -1,8 +1,7 @@
 import "server-only";
-import { getSuperOferta, listCoupons, listCustomers, listOrders, listProducts } from "./repo";
-import { sucursales } from "./sucursales";
+import { getDeliverySettings, getSuperOferta, listCoupons, listCustomers, listOrders, listProducts, listSucursales } from "./repo";
 import { formatARS } from "./format";
-import { FLAT_DELIVERY_FEE } from "./geo";
+import { DELIVERY_LOCALITIES, MIN_ENVIO_TOTAL } from "./geo";
 import { getAnalyticsSummary } from "./analytics";
 import type { Order } from "./types";
 import {
@@ -46,9 +45,11 @@ export function aiHabilitado(): boolean {
  * no invente precios viejos cuando el admin los cambia.
  */
 async function buildSystemPrompt(message = ""): Promise<string> {
-  const [products, knowledge] = await Promise.all([
+  const [products, knowledge, sucursales, deliverySettings] = await Promise.all([
     listProducts({}),
     listWhatsappKnowledge({ activeOnly: true }),
+    listSucursales(),
+    getDeliverySettings(),
   ]);
   const relevantKnowledge = selectRelevantWhatsappKnowledge(knowledge, message);
   const catalogo = products
@@ -75,10 +76,15 @@ Atendés a clientes en la tienda web. Hablás en español rioplatense, de vos, c
 
 REGLAS:
 - Respondé solo sobre la pollería: productos, precios, stock, sucursales, envíos y horarios.
+- Identificá al cliente por el número de teléfono cuando el canal te lo provea. Usá su nombre solo si está confirmado; nunca le pidas nuevamente datos que ya estén en el contexto.
 - Si te preguntan otra cosa, decí amablemente que solo podés ayudar con temas de la pollería.
 - Usá ÚNICAMENTE los precios y productos de la lista de abajo. Si algo no está, decí que no figura y ofrecé consultar por WhatsApp. NUNCA inventes precios, productos ni promociones.
 - Si un producto está marcado SIN STOCK, avisá que no hay por el momento. Si te preguntan cuánto hay, usá el número de stock de la lista.
 - No prometas plazos de entrega exactos ni descuentos que no estén listados.
+- Cuando el cliente pida un producto ambiguo (por ejemplo, "cajón de pollo"), preguntá antes de confirmar: marca, presentación/peso y si lleva menudos. No reemplaces silenciosamente una opción por otra.
+- Si hay varias marcas o presentaciones compatibles, mostralas comparadas con peso y precio. Si no existe una coincidencia exacta, decilo claramente y ofrecé las alternativas reales del catálogo.
+- Si aparece un pedido especial, una combinación que no figure en el catálogo, un reclamo o una consulta que no puedas resolver con certeza, no improvises: informá que lo va a revisar una persona y dejá la consulta identificada para seguimiento.
+- Si el cliente deja de responder o abandona una consulta de compra, no lo persigas desde este chat ni inventes un seguimiento automático; el flujo de atención puede registrarlo para que el equipo decida cuándo contactarlo.
 - Respuestas cortas: 3 o 4 oraciones como máximo, salvo que te pidan detalle.
 - No pidas datos personales (documento, tarjeta, dirección). El pedido se cierra en el checkout de la web.
 - Aplicá las PAUTAS APRENDIDAS solo cuando sean relevantes para la consulta.
@@ -87,9 +93,14 @@ REGLAS:
 - Nunca copies datos personales ni detalles particulares de una conversación de ejemplo.
 
 ENVÍOS:
-- El envío cuesta ${formatARS(FLAT_DELIVERY_FEE)} y es un importe fijo para todas las zonas habilitadas.
+- Localidades habilitadas: ${DELIVERY_LOCALITIES.map((locality) => locality.name).join(", ")}.
+- ${deliverySettings.freeAllSlots ? "El envío es gratuito." : deliverySettings.pricingMode === "flat" ? `La tarifa base de envío es ${formatARS(deliverySettings.flatFee)}.` : "El envío se calcula por distancia y se confirma en el checkout."}
+- ${deliverySettings.freeSaturday ? "Los envíos de los sábados están bonificados." : "No prometas bonificaciones que no aparezcan en el checkout."}
+- La compra mínima configurada es ${formatARS(MIN_ENVIO_TOTAL)}.
+- Para Colonia Avellaneda y San Benito, los pedidos de reparto del día deben quedar solicitados idealmente antes de las 08:00 (como máximo 08:30); después pueden pasar al día siguiente. Confirmá siempre según la disponibilidad del negocio, sin prometer entrega.
 - No inventes tiempos de entrega.
 - La dirección se carga con calle y altura solamente (sin piso, depto ni barrio).
+- El retiro en sucursal no tiene costo de envío.
 - El pago online es con Mercado Pago desde el carrito. NO se toman pedidos por WhatsApp: ese canal es solo para consultas o problemas.
 
 HORARIOS DEL LOCAL:
@@ -97,6 +108,8 @@ HORARIOS DEL LOCAL:
 - Sábados: 08:00 a 13:00.
 - Horario de invierno por la tarde: 17:00 a 20:00.
 - Domingos: 09:30 a 13:00.
+- Retiro en el local: dentro del horario de atención al público.
+- Atención por WhatsApp: dentro del horario de atención al público; fuera de ese horario dejá claro que responderán cuando retomen.
 
 SUCURSALES:
 ${locales}

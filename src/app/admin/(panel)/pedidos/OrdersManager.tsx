@@ -60,6 +60,11 @@ function isPaid(order: Order): boolean {
   return paidStatuses.includes(order.status) || isReassigned(order);
 }
 
+function orderDeliveryLabel(order: Order): string {
+  if (order.entrega === "retiro") return `Retiro · ${order.address ?? "Sucursal"}`;
+  return deliveryEstimateLabel(order.deliverySlot, order.deliveryDate) ?? "—";
+}
+
 function matchesFilter(order: Order, filter: Filter): boolean {
   if (filter === "todos") return true;
   if (filter === "pagados") return isPaid(order);
@@ -84,6 +89,7 @@ function matchesSearch(order: Order, query: string): boolean {
     order.address,
     order.deliverySlot,
     order.deliveryDate,
+    order.entrega,
     paymentLabels[order.payment],
     order.status.replaceAll("_", " "),
     isReassigned(order) ? "reasignado" : undefined,
@@ -112,7 +118,7 @@ function orderValue(order: Order, key: SortKey): string | number | undefined {
     case "detail":
       return order.items.map((item) => `${item.name} ${item.qty}`).join(" ");
     case "delivery":
-      return `${order.deliveryDate ?? ""} ${order.deliverySlot ?? ""}`.trim() || undefined;
+      return orderDeliveryLabel(order);
     case "payment":
       return `${paymentLabels[order.payment]} ${paymentState(order).label}`;
     case "created":
@@ -303,7 +309,7 @@ export function OrdersManager({ orders }: { orders: Order[] }) {
                   {order.items.map((item) => `${item.qty}x ${item.name}`).join(", ")}
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <Info label="Entrega" value={deliveryEstimateLabel(order.deliverySlot, order.deliveryDate) ?? "-"} />
+                  <Info label="Entrega" value={orderDeliveryLabel(order)} />
                   <Info label="Creado" value={formatDateTime(order.date)} />
                   <Info label="Pago" value={`${paymentLabels[order.payment]} · ${payment.label}`} />
                   <Info label="Total" value={formatARS(order.total)} strong />
@@ -383,7 +389,7 @@ export function OrdersManager({ orders }: { orders: Order[] }) {
                       {order.items.map((item) => `${item.qty}× ${item.name}`).join(", ")}
                     </td>
                     <td className="px-4 py-3 text-brand-ink/70">
-                      {deliveryEstimateLabel(order.deliverySlot, order.deliveryDate) ?? "—"}
+                      {orderDeliveryLabel(order)}
                     </td>
                     <td className="px-4 py-3 text-brand-ink/70">
                       <p className="whitespace-nowrap">{paymentLabels[order.payment]}</p>

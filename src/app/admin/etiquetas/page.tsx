@@ -2,11 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { requirePerm } from "@/lib/auth/permissions";
-import { listOrdersByIds } from "@/lib/repo";
+import { listOrdersByIds, listSucursales } from "@/lib/repo";
 import { formatARS } from "@/lib/format";
 import { googleMapsPointUrl } from "@/lib/route";
 import { deliveryEstimateLabel } from "@/lib/entrega";
-import { sucursales } from "@/lib/sucursales";
 import type { Order } from "@/lib/types";
 import { PrintButton } from "./PrintButton";
 
@@ -42,7 +41,10 @@ export default async function EtiquetasPage({
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  const orders = wanted.length > 0 ? await listOrdersByIds(wanted) : [];
+  const [orders, sucursales] = await Promise.all([
+    wanted.length > 0 ? listOrdersByIds(wanted) : Promise.resolve([]),
+    listSucursales({ includeInactive: true }),
+  ]);
 
   // QR con el punto exacto de entrega: el repartidor lo escanea desde el
   // paquete y le abre la navegación a esa casa.

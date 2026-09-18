@@ -50,12 +50,20 @@ export interface Product {
 export interface Coupon {
   id: string;
   code: string;
+  couponType: "envio" | "precio" | "precio_envio";
   kind: "coupon" | "second_unit" | "three_for_two";
   automatic: boolean;
   maxUses: number;
   usedCount: number;
+  activeReservations: number;
+  remainingUses: number;
+  availableDays: number[];
+  startsAt?: string;
+  endsAt?: string;
   discountPercent: number;
+  shippingDiscountPercent: number;
   discountProductId?: string;
+  discountProductIds: string[];
   discountProductName?: string;
   giftProductId?: string;
   giftProductName?: string;
@@ -69,8 +77,10 @@ export interface Coupon {
 
 export interface CouponQuote {
   code: string;
+  couponType: "envio" | "precio" | "precio_envio";
   subtotal: number;
   discount: number;
+  shippingDiscountPercent: number;
   total: number;
   description: string;
   automatic?: boolean;
@@ -85,11 +95,8 @@ export type OrderStatus =
   | "entregado"
   | "cancelado";
 
-/**
- * Forma de entrega del pedido: siempre envío a domicilio.
- * El retiro por sucursal ya no existe.
- */
-export type DeliveryType = "envio";
+/** Forma de entrega elegida en el checkout. */
+export type DeliveryType = "envio" | "retiro";
 
 export interface OrderItem {
   productId: string;
@@ -192,10 +199,17 @@ export interface Staff {
 }
 
 export interface DeliverySettings {
+  pricingMode: "flat" | "distance";
+  flatFee: number;
   pricePerKm: number;
   freeAllSlots: boolean;
   freeSaturday: boolean;
   fixedSucursalId: string;
+}
+
+export interface AdminUiSettings {
+  hiddenModules: string[];
+  advancedReports: boolean;
 }
 
 export interface DeliveryQuote {

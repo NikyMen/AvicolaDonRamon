@@ -9,20 +9,38 @@ import {
   Minus,
   Plus,
   ShoppingBag,
+  Store,
   TicketPercent,
   Trash2,
+  Truck,
   X,
 } from "lucide-react";
 import { useCart } from "@/store/cart";
 import { useUI } from "@/store/ui";
 import { formatARS } from "@/lib/format";
-import { isInsideParana, MIN_ENVIO_TOTAL } from "@/lib/geo";
+import {
+  DEFAULT_DELIVERY_LOCALITY_ID,
+  getDeliveryLocality,
+  isInsideDeliveryLocality,
+  MIN_ENVIO_TOTAL,
+  type DeliveryLocalityId,
+} from "@/lib/geo";
 import {
   AVISO_DIRECCION,
   estimatedDeliveryOptions,
 } from "@/lib/entrega";
 import { MapPicker, type MapPoint } from "@/components/store/MapPicker";
-import type { CouponQuote, DeliveryQuote } from "@/lib/types";
+import type { CouponQuote, DeliveryQuote, DeliveryType } from "@/lib/types";
+
+interface PickupBranch {
+  id: string;
+  name: string;
+  street: string;
+  number: string;
+  region: string;
+  address: string;
+  mapsUrl?: string;
+}
 
 const CHECKOUT_ATTEMPT_KEY = "entrerios-checkout-attempt";
 
@@ -38,23 +56,37 @@ export function CartDrawer() {
   const [deliveryQuote, setDeliveryQuote] = useState<DeliveryQuote | null>(null);
   const [deliveryQuoteError, setDeliveryQuoteError] = useState("");
   const [quotingDelivery, setQuotingDelivery] = useState(false);
-  const productsTotal = coupon?.total ?? subtotal;
-  const finalTotal = productsTotal + (deliveryQuote?.fee ?? 0);
+  const productsTotal =
+    coupon?.couponType === "precio" || coupon?.couponType === "precio_envio" ? coupon.total : subtotal;
+  const shippingDiscount = deliveryQuote && coupon?.shippingDiscountPercent
+    ? Math.round((deliveryQuote.fee * coupon.shippingDiscountPercent) / 100)
+    : 0;
+  const effectiveShippingFee = Math.max(0, (deliveryQuote?.fee ?? 0) - shippingDiscount);
+  const finalTotal = productsTotal + effectiveShippingFee;
   const automaticPromoRequest = useRef(0);
 
   const [errorPago, setErrorPago] = useState<string | null>(null);
   const [pagando, setPagando] = useState(false);
   const checkoutAttempt = useRef<{ fingerprint: string; id: string } | null>(null);
 
-  // Datos de contacto + entrega a domicilio (única modalidad).
+  // Datos de contacto + modalidad elegida.
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
+  const [entrega, setEntrega] = useState<DeliveryType>("envio");
+  const [pickupBranches, setPickupBranches] = useState<PickupBranch[]>([]);
+  const [sucursalId, setSucursalId] = useState("");
   const [direccion, setDireccion] = useState("");
+  const [localityId, setLocalityId] = useState<DeliveryLocalityId>(
+    DEFAULT_DELIVERY_LOCALITY_ID
+  );
   const [punto, setPunto] = useState<MapPoint | null>(null);
   const [puntoConfirmado, setPuntoConfirmado] = useState(false);
   const [opcionEntregaKey, setOpcionEntregaKey] = useState("");
   const [ahora, setAhora] = useState(() => new Date());
-  const opcionesEntrega = useMemo(() => estimatedDeliveryOptions(ahora), [ahora]);
+  const opcionesEntrega = useMemo(
+    () => estimatedDeliveryOptions(ahora, localityId),
+    [ahora, localityId]
+  );
   const opcionEntregaSeleccionada = useMemo(
     () => opcionesEntrega.find((opcion) => opcion.key === opcionEntregaKey) ?? null,
     [opcionEntregaKey, opcionesEntrega]
@@ -68,6 +100,19 @@ export function CartDrawer() {
     const timer = window.setInterval(() => setAhora(new Date()), 30_000);
     return () => window.clearInterval(timer);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || pickupBranches.length > 0) return;
+    const controller = new AbortController();
+    void fetch("/api/sucursales", { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((branches: PickupBranch[]) => {
+        setPickupBranches(branches);
+        setSucursalId((current) => current || branches[0]?.id || "");
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [open, pickupBranches.length]);
 
   useEffect(() => {
     setCoupon(null);
@@ -111,6 +156,7 @@ export function CartDrawer() {
           // El código de bienvenida vale una vez por número: sin el teléfono
           // el servidor no puede validarlo.
           telefono: telefono.trim() || undefined,
+          fechaEntrega: entrega === "envio" ? opcionEntregaSeleccionada?.date : undefined,
         }),
       });
       const data = await res.json();
@@ -129,13 +175,15 @@ export function CartDrawer() {
   const nombreValido = nombre.trim().length >= 2;
   const telefonoValido = telefono.replace(/\D/g, "").length >= 6;
   const direccionValida = direccion.trim().length >= 4;
-  const dentroDeZona = punto !== null && isInsideParana(punto.lat, punto.lng);
+  const dentroDeZona =
+    punto !== null && isInsideDeliveryLocality(localityId, punto.lat, punto.lng);
   const alcanzaMinimo = subtotal >= MIN_ENVIO_TOTAL;
   const faltaParaMinimo = Math.max(0, MIN_ENVIO_TOTAL - subtotal);
 
   useEffect(() => {
     setDeliveryQuote(null);
     setDeliveryQuoteError("");
+    if (entrega !== "envio") return;
     if (!puntoConfirmado || !punto || !opcionEntregaSeleccionada || !dentroDeZona) return;
 
     const controller = new AbortController();
@@ -147,6 +195,7 @@ export function CartDrawer() {
       body: JSON.stringify({
         lat: punto.lat,
         lng: punto.lng,
+        localidad: localityId,
         fechaEntrega: opcionEntregaSeleccionada.date,
       }),
     })
@@ -165,33 +214,47 @@ export function CartDrawer() {
       });
 
     return () => controller.abort();
-  }, [dentroDeZona, opcionEntregaSeleccionada, punto, puntoConfirmado]);
+  }, [dentroDeZona, entrega, localityId, opcionEntregaSeleccionada, punto, puntoConfirmado]);
 
-  const listoParaPagar =
-    nombreValido &&
-    telefonoValido &&
-    alcanzaMinimo &&
-    direccionValida &&
-    punto !== null &&
-    dentroDeZona &&
-    puntoConfirmado &&
-    deliveryQuote !== null &&
-    opcionEntregaSeleccionada !== null;
+  function changeDeliveryType(next: DeliveryType) {
+    setEntrega(next);
+    setDeliveryQuote(null);
+    setDeliveryQuoteError("");
+    setPuntoConfirmado(false);
+    checkoutAttempt.current = null;
+  }
+
+  const entregaValida =
+    entrega === "retiro"
+      ? pickupBranches.some((branch) => branch.id === sucursalId)
+      : direccionValida &&
+        punto !== null &&
+        dentroDeZona &&
+        puntoConfirmado &&
+        deliveryQuote !== null &&
+        opcionEntregaSeleccionada !== null;
+  const listoParaPagar = nombreValido && telefonoValido && alcanzaMinimo && entregaValida;
 
   const textoBoton = pagando
     ? "Redirigiendo a Mercado Pago…"
     : !alcanzaMinimo
       ? `Mínimo ${formatARS(MIN_ENVIO_TOTAL)} para comprar`
-      : !nombreValido || !telefonoValido
-        ? "Completá tus datos"
-        : !direccionValida || !punto
-          ? "Completá dirección y mapa"
-          : !dentroDeZona
-            ? "Punto fuera de Paraná"
-            : !puntoConfirmado
-              ? "Confirmá la ubicación del mapa"
-              : opcionEntregaSeleccionada === null
-                ? "Elegí el horario de entrega"
+    : !nombreValido || !telefonoValido
+      ? "Completá tus datos"
+      : entrega === "retiro" && !sucursalId
+        ? "Elegí una sucursal"
+      : entrega === "retiro"
+        ? "Pagar y retirar en sucursal"
+      : !direccionValida
+        ? "Completá la dirección"
+        : opcionEntregaSeleccionada === null
+          ? "Elegí el horario de entrega"
+          : !punto
+            ? "Completá el mapa"
+            : !dentroDeZona
+              ? `Punto fuera de ${getDeliveryLocality(localityId).name}`
+              : !puntoConfirmado
+                ? "Confirmá la ubicación del mapa"
                 : quotingDelivery
                   ? "Calculando costo de envio"
                   : deliveryQuote === null
@@ -200,20 +263,23 @@ export function CartDrawer() {
 
   // Inicia el pago: crea el pedido + preferencia en el backend y redirige a MP.
   const pagarConMercadoPago = async () => {
-    if (!listoParaPagar || pagando || !opcionEntregaSeleccionada || !deliveryQuote) return;
+    if (!listoParaPagar || pagando) return;
     setErrorPago(null);
     setPagando(true);
     try {
       // Se vuelve a calcular al hacer click para no enviar una fecha vencida si
       // justo se alcanzó un horario de corte con el carrito abierto.
-      const ahoraActualizado = new Date();
-      const opcionEntrega = estimatedDeliveryOptions(ahoraActualizado).find(
-        (opcion) => opcion.key === opcionEntregaKey
-      );
-      if (!opcionEntrega) {
-        setAhora(ahoraActualizado);
-        setOpcionEntregaKey("");
-        throw new Error("La fecha de entrega se actualizó. Elegí nuevamente el horario.");
+      let opcionEntrega = opcionEntregaSeleccionada;
+      if (entrega === "envio") {
+        const ahoraActualizado = new Date();
+        opcionEntrega = estimatedDeliveryOptions(ahoraActualizado, localityId).find(
+          (opcion) => opcion.key === opcionEntregaKey
+        ) ?? null;
+        if (!opcionEntrega || !deliveryQuote) {
+          setAhora(ahoraActualizado);
+          setOpcionEntregaKey("");
+          throw new Error("La fecha de entrega se actualizó. Elegí nuevamente el horario.");
+        }
       }
       const payload = {
         items: lines.map((l) => ({
@@ -222,15 +288,18 @@ export function CartDrawer() {
           name: l.product.name,
           price: l.product.price,
         })),
-        direccion: direccion.trim(),
-        lat: punto?.lat,
-        lng: punto?.lng,
-        franjaHoraria: opcionEntrega.id,
-        fechaEntrega: opcionEntrega.date,
+        entrega,
+        sucursalId: entrega === "retiro" ? sucursalId : undefined,
+        direccion: entrega === "envio" ? direccion.trim() : undefined,
+        localidad: entrega === "envio" ? localityId : undefined,
+        lat: entrega === "envio" ? punto?.lat : undefined,
+        lng: entrega === "envio" ? punto?.lng : undefined,
+        franjaHoraria: entrega === "envio" ? opcionEntrega?.id : undefined,
+        fechaEntrega: entrega === "envio" ? opcionEntrega?.date : undefined,
         nombre: nombre.trim(),
         telefono: telefono.trim(),
         couponCode: coupon?.code,
-        shippingFee: deliveryQuote.fee,
+        shippingFee: entrega === "envio" ? deliveryQuote?.fee ?? 0 : 0,
       };
       const fingerprint = JSON.stringify(payload);
       if (!checkoutAttempt.current || checkoutAttempt.current.fingerprint !== fingerprint) {
@@ -291,7 +360,13 @@ export function CartDrawer() {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div
+          className={
+            lines.length === 0
+              ? "flex-1 overflow-y-auto px-4 py-3"
+              : "max-h-[35vh] shrink-0 overflow-y-auto px-4 py-3"
+          }
+        >
           {lines.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center text-brand-ink/50">
               <ShoppingBag size={42} className="mb-3 opacity-40" />
@@ -364,7 +439,7 @@ export function CartDrawer() {
         </div>
 
         {lines.length > 0 && (
-          <div className="max-h-[70%] overflow-y-auto border-t border-black/5 px-4 py-3">
+          <div className="min-h-0 flex-1 overflow-y-auto border-t border-black/5 px-4 py-3">
             <div className="space-y-1 text-sm">
               {coupon && coupon.discount > 0 && (
                 <>
@@ -387,12 +462,20 @@ export function CartDrawer() {
                 </div>
               )}
               {deliveryQuote && (
-                <div className="flex justify-between text-brand-ink/70">
-                  <span>Costo de envio</span>
-                  <span className={deliveryQuote.fee === 0 ? "font-semibold text-emerald-700" : ""}>
-                    {deliveryQuote.fee === 0 ? "Gratis" : formatARS(deliveryQuote.fee)}
-                  </span>
-                </div>
+                <>
+                  <div className="flex justify-between text-brand-ink/70">
+                    <span>Costo de envio</span>
+                    <span className={effectiveShippingFee === 0 ? "font-semibold text-emerald-700" : ""}>
+                      {effectiveShippingFee === 0 ? "Gratis" : formatARS(effectiveShippingFee)}
+                    </span>
+                  </div>
+                  {shippingDiscount > 0 && (
+                    <div className="flex justify-between text-xs font-semibold text-emerald-700">
+                      <span>Descuento envio</span>
+                      <span>-{formatARS(shippingDiscount)}</span>
+                    </div>
+                  )}
+                </>
               )}
               {quotingDelivery && (
                 <div className="flex justify-between text-brand-ink/50">
@@ -419,6 +502,29 @@ export function CartDrawer() {
                   {deliveryQuoteError}
                 </p>
               )}
+
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-brand-cream p-1" aria-label="Forma de entrega">
+                <button
+                  type="button"
+                  onClick={() => changeDeliveryType("envio")}
+                  aria-pressed={entrega === "envio"}
+                  className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold transition ${
+                    entrega === "envio" ? "bg-brand-red text-white shadow-sm" : "text-brand-ink/60 hover:bg-white"
+                  }`}
+                >
+                  <Truck size={15} /> Envío
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changeDeliveryType("retiro")}
+                  aria-pressed={entrega === "retiro"}
+                  className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-bold transition ${
+                    entrega === "retiro" ? "bg-brand-red text-white shadow-sm" : "text-brand-ink/60 hover:bg-white"
+                  }`}
+                >
+                  <Store size={15} /> Retiro en sucursal
+                </button>
+              </div>
 
               <div className="space-y-3 rounded-2xl border border-black/5 bg-brand-cream/60 p-3">
                 <div className="grid grid-cols-2 gap-2">
@@ -448,8 +554,10 @@ export function CartDrawer() {
                   </label>
                 </div>
 
-                {/* Paso: dirección (solo calle y altura) */}
-                <div>
+                {entrega === "envio" ? (
+                  <>
+                  {/* Paso: dirección (solo calle y altura) */}
+                  <div>
                   <label className="block">
                     <span className="mb-1 block text-xs font-semibold text-brand-ink/70">
                       Dirección de entrega
@@ -466,10 +574,10 @@ export function CartDrawer() {
                     <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                     <span>{AVISO_DIRECCION}</span>
                   </p>
-                </div>
+                  </div>
 
-                {/* Paso: rango horario de entrega */}
-                <div>
+                  {/* Paso: rango horario de entrega */}
+                  <div>
                   <span className="mb-1 flex items-center gap-1 text-xs font-semibold text-brand-ink/70">
                     <Clock size={14} className="text-brand-red" /> ¿En qué horario querés recibirlo?
                   </span>
@@ -490,25 +598,86 @@ export function CartDrawer() {
                       </button>
                     ))}
                   </div>
-                </div>
+                  {getDeliveryLocality(localityId).morningDays !== null && (
+                    <p className="mt-1.5 text-[11px] font-semibold text-brand-ink/55">
+                      En {getDeliveryLocality(localityId).name} los envíos se realizan únicamente por la mañana.
+                    </p>
+                  )}
+                  </div>
 
-                {/* Paso: mapa + confirmación de la ubicación (versión compacta) */}
-                <div>
-                  <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-brand-ink/70">
-                    <MapPin size={13} className="text-brand-red" /> Marcá el punto exacto en el mapa
-                  </span>
-                  <MapPicker value={punto} onChange={setPunto} searchQuery={direccion} compact />
-                  <label className="mt-2 flex items-start gap-2 rounded-lg bg-brand-gold/20 px-3 py-1.5 text-[11px] font-bold text-brand-ink">
-                    <input
-                      type="checkbox"
-                      checked={puntoConfirmado}
-                      disabled={!punto}
-                      onChange={(e) => setPuntoConfirmado(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 shrink-0 accent-brand-red disabled:opacity-40"
+                  {/* El mapa se monta recién después de elegir una franja horaria. */}
+                  {opcionEntregaSeleccionada && (
+                    <div className="checkout-map-reveal">
+                    <span className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-brand-ink/70">
+                      <MapPin size={13} className="text-brand-red" /> Elegí la localidad y marcá el punto
+                    </span>
+                    <MapPicker
+                      value={punto}
+                      onChange={setPunto}
+                      localityId={localityId}
+                      onLocalityChange={(nextLocalityId) => {
+                        if (nextLocalityId === localityId) return;
+                        const nextOption = estimatedDeliveryOptions(new Date(), nextLocalityId)[0];
+                        setLocalityId(nextLocalityId);
+                        setPunto(null);
+                        setPuntoConfirmado(false);
+                        setOpcionEntregaKey(nextOption?.key ?? "");
+                        setDeliveryQuote(null);
+                      }}
+                      searchQuery={direccion}
+                      compact
                     />
-                    <span>Confirmo que la ubicación marcada en el mapa es la correcta.</span>
-                  </label>
-                </div>
+                    <label className="mt-2 flex items-start gap-2 rounded-lg bg-brand-gold/20 px-3 py-2 text-[11px] font-bold leading-snug text-brand-ink">
+                      <input
+                        type="checkbox"
+                        checked={puntoConfirmado}
+                        disabled={!punto}
+                        onChange={(e) => setPuntoConfirmado(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-brand-red disabled:opacity-40"
+                      />
+                      <span>Confirmo que la ubicación marcada en el mapa es la correcta.</span>
+                    </label>
+                    </div>
+                  )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-sm font-bold text-brand-ink">¿Dónde retirás?</p>
+                      <p className="text-xs text-brand-ink/50">Elegí una sucursal activa. El retiro no tiene costo de envío.</p>
+                    </div>
+                    {pickupBranches.length > 0 ? (
+                      <div className="space-y-2">
+                        {pickupBranches.map((branch) => {
+                          const selected = branch.id === sucursalId;
+                          return (
+                            <button
+                              key={branch.id}
+                              type="button"
+                              onClick={() => setSucursalId(branch.id)}
+                              aria-pressed={selected}
+                              className={`w-full rounded-xl border p-3 text-left transition ${
+                                selected
+                                  ? "border-brand-red bg-white shadow-sm"
+                                  : "border-black/10 bg-white/70 hover:border-brand-red/40"
+                              }`}
+                            >
+                              <span className="flex items-start gap-2">
+                                <MapPin size={16} className={`mt-0.5 shrink-0 ${selected ? "text-brand-red" : "text-brand-ink/35"}`} />
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-bold text-brand-ink">{branch.name}</span>
+                                  <span className="block text-xs text-brand-ink/55">{branch.street} {branch.number} · {branch.region}</span>
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="rounded-lg bg-white px-3 py-4 text-center text-xs text-brand-ink/50">Cargando sucursales…</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="rounded-xl border border-dashed border-brand-red/30 bg-brand-cream/60 p-3">

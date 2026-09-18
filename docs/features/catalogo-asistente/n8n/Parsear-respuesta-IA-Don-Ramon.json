@@ -1,0 +1,13 @@
+{
+  "parameters": {
+    "jsCode": "const base = $('Preparar entrada IA Don Ramon').first().json;\nconst raw = String($input.first().json.output ?? $input.first().json.text ?? '').trim();\nconst allowedIntents = new Set(['GREETING','CATALOG','PROMOS','PRICE','ORDER','DELIVERY','LOCATION','HOURS','PAYMENT','ORDER_STATUS','CANCELLATION','HUMAN','THANKS','OTHER']);\n// ORDER_STARTED reemplaza a CHECKOUT_SENT: es el nombre que usa el prompt del\n// agente (sección CLASIFICACIÓN). Debe coincidir con las claves de\n// STAGE_PATTERNS en 'Decidir etapa Don Ramon'.\nconst allowedEvents = new Set(['NONE','COMMERCIAL_INTEREST','ORDER_STARTED','HUMAN_REQUIRED','CANCELLATION_REQUESTED']);\nconst fallback = {\n  intent: 'OTHER', greeting: false, needs_human: true, crm_event: 'HUMAN_REQUIRED', requested_items: [],\n  reply: 'No pude verificar la información en este momento. Te paso con una persona del equipo 🙌', confidence: 0,\n};\nlet parsed;\ntry {\n  parsed = JSON.parse(raw.replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, ''));\n} catch { parsed = fallback; }\nconst result = {\n  intent: allowedIntents.has(parsed?.intent) ? parsed.intent : fallback.intent,\n  greeting: parsed?.greeting === true,\n  needs_human: parsed?.needs_human === true,\n  crm_event: allowedEvents.has(parsed?.crm_event) ? parsed.crm_event : fallback.crm_event,\n  requested_items: Array.isArray(parsed?.requested_items) ? parsed.requested_items.map((item) => ({\n    product_id: item?.product_id == null ? null : String(item.product_id),\n    product_name: String(item?.product_name ?? '').trim(),\n    quantity: Number.isFinite(Number(item?.quantity)) ? Number(item.quantity) : null,\n  })).filter((item) => item.product_name) : [],\n  reply: typeof parsed?.reply === 'string' && parsed.reply.trim() ? parsed.reply.trim() : fallback.reply,\n  confidence: Number.isFinite(Number(parsed?.confidence)) ? Math.min(1, Math.max(0, Number(parsed.confidence))) : 0,\n};\nif (!base.contextAvailable && ['CATALOG','PROMOS','PRICE','ORDER'].includes(result.intent)) {\n  result.needs_human = true;\n  result.crm_event = 'HUMAN_REQUIRED';\n  result.reply = fallback.reply;\n  result.confidence = Math.min(result.confidence, 0.5);\n}\nreturn [{ json: { ...base, ...result } }];"
+  },
+  "id": "4b757a31-48b4-4711-bbee-b906a53014b7",
+  "name": "Parsear respuesta IA Don Ramon",
+  "type": "n8n-nodes-base.code",
+  "typeVersion": 2,
+  "position": [
+    -240,
+    656
+  ]
+}

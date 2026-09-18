@@ -1,6 +1,5 @@
-import { listOrders, listActiveRoute, listRouteHistory, listStaff } from "@/lib/repo";
+import { listOrders, listActiveRoute, listRouteHistory, listStaff, listSucursales } from "@/lib/repo";
 import { requirePerm } from "@/lib/auth/permissions";
-import { sucursales } from "@/lib/sucursales";
 import { googleMapsPointUrl, googleMapsRouteUrl, DEFAULT_ROUTE_ORIGIN } from "@/lib/route";
 import { deliveryEstimateLabel, DELIVERY_SLOTS } from "@/lib/entrega";
 import type { Order } from "@/lib/types";
@@ -11,10 +10,6 @@ import { HistorialRutas } from "./HistorialRutas";
 
 export const dynamic = "force-dynamic";
 
-function sucursalName(id?: string) {
-  return sucursales.find((s) => s.id === id)?.name ?? id ?? "—";
-}
-
 /** Posición de la franja horaria para ordenar: primero la mañana, después la tarde. */
 function slotOrder(id?: string) {
   const i = DELIVERY_SLOTS.findIndex((s) => s.id === id);
@@ -24,24 +19,27 @@ function slotOrder(id?: string) {
 export default async function EntregasPage() {
   await requirePerm("entregas");
 
-  const [listos, ruta, historial, equipo] = await Promise.all([
+  const [listos, ruta, historial, equipo, sucursales] = await Promise.all([
     listOrders({ statusIn: ["en_preparacion", "cancelado"] }),
     listActiveRoute(),
     listRouteHistory(),
     listStaff(),
+    listSucursales({ includeInactive: true }),
   ]);
+  const sucursalName = (id?: string) =>
+    sucursales.find((branch) => branch.id === id)?.name ?? id ?? "—";
   const repartidores = equipo
     .filter((s) => s.role === "repartidor" && s.active)
     .map((s) => ({ id: s.id, name: s.name }));
   const staffName = (id?: string) => equipo.find((s) => s.id === id)?.name ?? null;
 
-  // Todos los pedidos son envíos a domicilio (no existe el retiro por sucursal).
-  // Se ordenan por fecha estimada, franja y antigüedad.
+  // Solo los pedidos con envío entran al armado de rutas.
   const envios = listos
     .filter(
       (order) =>
-        order.status === "en_preparacion" ||
-        (order.status === "cancelado" && Boolean(order.paidAt) && Boolean(order.deliveryRetryAt))
+        order.entrega === "envio" &&
+        (order.status === "en_preparacion" ||
+          (order.status === "cancelado" && Boolean(order.paidAt) && Boolean(order.deliveryRetryAt)))
     )
     .sort(
       (a, b) =>
@@ -51,7 +49,7 @@ export default async function EntregasPage() {
     );
   const enCamino = ruta.filter((o) => o.status === "en_camino");
 
-  const sucursalOptions = sucursales.map((s) => ({
+  const sucursalOptions = sucursales.filter((s) => s.active).map((s) => ({
     id: s.id,
     name: s.name,
     lat: s.lat,

@@ -1,4 +1,4 @@
-import { Eye, ShoppingCart, Clock, TrendingUp } from "lucide-react";
+import { Eye, ShoppingCart, Clock, TrendingUp, FileSpreadsheet } from "lucide-react";
 import {
   countOnlineVisitors,
   getAnalyticsSummary,
@@ -99,11 +99,16 @@ export default async function AnalyticsPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-brand-ink">Analítica</h1>
-        <p className="text-sm text-brand-ink/55">
-          Visitas a la tienda y actividad del carrito · {periodLabel}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-ink">Analítica</h1>
+          <p className="text-sm text-brand-ink/55">
+            Visitas a la tienda y actividad del carrito · {periodLabel}
+          </p>
+        </div>
+        <a href="/api/admin/metrics/export" className="btn-primary">
+          <FileSpreadsheet size={17} /> Exportar todas las métricas
+        </a>
       </div>
 
       <AnalyticsRangeControls preset={preset} from={fromInput} to={toInput} />

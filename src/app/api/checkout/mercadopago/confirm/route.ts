@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { obtenerPago } from "@/lib/mercadopago";
-import { applyVerifiedMercadoPagoPayment, getOrder } from "@/lib/repo";
+import { applyVerifiedMercadoPagoPayment, getOrder, listSucursales } from "@/lib/repo";
 import { deliveryEstimateLabel } from "@/lib/entrega";
 
 export const runtime = "nodejs";
@@ -53,6 +53,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const pickupBranch = order?.entrega === "retiro"
+    ? (await listSucursales({ includeInactive: true })).find((branch) => branch.id === order?.originSucursalId)
+    : null;
+
   return NextResponse.json({
     status: mpStatus ?? "pending",
     estado: order?.status ?? "pendiente",
@@ -60,6 +64,9 @@ export async function POST(req: NextRequest) {
     codigo: order?.id ?? null,
     deliveryCode: order?.deliveryCode ?? null,
     franjaHoraria: deliveryEstimateLabel(order?.deliverySlot, order?.deliveryDate),
+    entrega: order?.entrega ?? "envio",
+    sucursal: pickupBranch?.name ?? null,
+    direccionSucursal: order?.entrega === "retiro" ? order.address ?? null : null,
     regalo: order?.items.find((i) => i.price === 0)?.name ?? null,
   });
 }

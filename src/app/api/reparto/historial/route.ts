@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRepartoAccess } from "@/lib/auth/reparto-access";
-import { listRouteHistory } from "@/lib/repo";
-import { sucursales } from "@/lib/sucursales";
+import { listRouteHistory, listSucursales } from "@/lib/repo";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,7 +20,10 @@ export async function GET() {
     );
   }
 
-  const rutas = await listRouteHistory(20, access.kind === "repartidor" ? access.id : undefined);
+  const [rutas, sucursales] = await Promise.all([
+    listRouteHistory(20, access.kind === "repartidor" ? access.id : undefined),
+    listSucursales({ includeInactive: true }),
+  ]);
 
   const lotes = rutas.map((ruta) => ({
     batchId: ruta.batchId,

@@ -25,6 +25,7 @@ export interface PermModule {
 export const PERM_MODULES: PermModule[] = [
   { key: "entregas", label: "Entregas", href: "/admin/entregas" },
   { key: "envios", label: "Envios", href: "/admin/envios" },
+  { key: "sucursales", label: "Sucursales", href: "/admin/sucursales" },
   { key: "productos", label: "Stock", href: "/admin/productos" },
   { key: "clientes", label: "Clientes", href: "/admin/clientes" },
   { key: "equipo", label: "Equipo", href: "/admin/equipo" },

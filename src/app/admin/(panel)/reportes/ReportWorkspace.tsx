@@ -1,11 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import {
-  ADMIN_PREFERENCES_EVENT,
-  ADVANCED_REPORTS_KEY,
-  DEFAULT_ADVANCED_REPORTS_VISIBLE,
-} from "@/lib/admin-preferences";
 import { BusinessAIChat } from "./BusinessAIChat";
 import { AdvancedReportData } from "./AdvancedReportData";
 
@@ -19,27 +11,10 @@ type Props = {
     byMonth: { month: string; label: string; count: number }[];
   };
   topBuyers: { id: string; name: string; spent: number; orders: number }[];
+  advancedVisible: boolean;
 };
 
-export function ReportWorkspace({ enabled, stats, topBuyers }: Props) {
-  const [advancedVisible, setAdvancedVisible] = useState(DEFAULT_ADVANCED_REPORTS_VISIBLE);
-
-  useEffect(() => {
-    const sync = () => {
-      const value = localStorage.getItem(ADVANCED_REPORTS_KEY);
-      setAdvancedVisible(
-        value === null ? DEFAULT_ADVANCED_REPORTS_VISIBLE : value === "true"
-      );
-    };
-    sync();
-    window.addEventListener("storage", sync);
-    window.addEventListener(ADMIN_PREFERENCES_EVENT, sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener(ADMIN_PREFERENCES_EVENT, sync);
-    };
-  }, []);
-
+export function ReportWorkspace({ enabled, stats, topBuyers, advancedVisible }: Props) {
   return (
     <div
       className={

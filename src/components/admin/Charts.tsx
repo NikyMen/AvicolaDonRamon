@@ -27,7 +27,15 @@ export function SalesChart({ data }: { data: { day: string; ventas: number }[] }
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#00000010" vertical={false} />
-        <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} stroke="#1F1A1780" />
+        <XAxis
+          dataKey="day"
+          tickLine={false}
+          axisLine={false}
+          fontSize={12}
+          stroke="#1F1A1780"
+          interval="preserveStartEnd"
+          minTickGap={24}
+        />
         <YAxis
           tickFormatter={(v) => `$${v / 1000}k`}
           tickLine={false}

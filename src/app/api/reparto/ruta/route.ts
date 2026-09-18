@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRepartoAccess } from "@/lib/auth/reparto-access";
-import { listActiveRoute } from "@/lib/repo";
+import { listActiveRoute, listSucursales } from "@/lib/repo";
 import { googleMapsPointUrl, googleMapsRouteUrl, DEFAULT_ROUTE_ORIGIN } from "@/lib/route";
-import { sucursales } from "@/lib/sucursales";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,7 +22,10 @@ export async function GET() {
     );
   }
 
-  const route = await listActiveRoute(access.kind === "repartidor" ? access.id : undefined);
+  const [route, sucursales] = await Promise.all([
+    listActiveRoute(access.kind === "repartidor" ? access.id : undefined),
+    listSucursales({ includeInactive: true }),
+  ]);
   const nextId = route.find((o) => o.status === "en_camino")?.internalId ?? null;
 
   const stops = route.map((o) => ({

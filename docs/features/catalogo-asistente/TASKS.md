@@ -30,8 +30,9 @@ Estado general: En ejecución
   - Objetivo: corregir lectura de Kommo, evento `ORDER_STARTED`, cantidad nula, fecha/hora y límites de contexto.
   - Dependencias: confirmar que la segunda exportación es la publicada.
   - Resuelve: RF-03, RF-05, RF-06, RF-09, RF-11, RF-13.
-  - Entrega parcial: `n8n/Preparar-entrada-IA-Don-Ramon.json` y `n8n/Simple-Memory-Don-Ramon.json`.
-  - Validación pendiente: importación en copia, ejecución con seis condiciones comerciales y mensajes ambiguos.
+  - Entrega parcial: `n8n/Preparar-entrada-IA-Don-Ramon.json`, `n8n/Simple-Memory-Don-Ramon.json`, `n8n/Parsear-respuesta-IA-Don-Ramon.json` y `n8n/Decidir-etapa-Don-Ramon.json`.
+  - Corrección incluida (18/9/2026): el agente emite `crm_event: ORDER_STARTED` pero el parser y el selector de etapa solo reconocían `CHECKOUT_SENT`, por lo que todo pedido se reclasificaba como `HUMAN_REQUIRED`. Unificado a `ORDER_STARTED` en ambos nodos. Se reemplazaron los IDs mágicos 142/143 por constantes nombradas y se agregó `stageResolutionWarning` para que un evento sin etapa configurada o sin coincidencia quede visible en la ejecución en vez de fallar en silencio.
+  - Validación pendiente: importación en copia, ejecución con seis condiciones comerciales y mensajes ambiguos, y confirmar en Kommo los nombres reales de las etapas contra `STAGE_PATTERNS`.
 
 - [ ] **T-06 — Definir y cargar reglas comerciales operativas**
   - Objetivo: horarios exactos, corte, calendario, derivación, responsables y cuenta corriente.

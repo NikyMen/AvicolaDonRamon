@@ -1,7 +1,6 @@
 import { handleError, ok } from "@/lib/api/respond";
-import { FLAT_DELIVERY_FEE, MIN_ENVIO_TOTAL } from "@/lib/geo";
-import { getSuperOferta, listOffers, listProducts } from "@/lib/repo";
-import { sucursales } from "@/lib/sucursales";
+import { DELIVERY_LOCALITIES, MIN_ENVIO_TOTAL } from "@/lib/geo";
+import { getDeliverySettings, listSucursales, getSuperOferta, listOffers, listProducts } from "@/lib/repo";
 import { getWhatsappAssistantEnabled } from "@/lib/whatsapp-assistant";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +12,13 @@ export const runtime = "nodejs";
  */
 export async function GET() {
   try {
-    const [enabled, products, offers, superOferta] = await Promise.all([
+    const [enabled, products, offers, superOferta, sucursales, deliverySettings] = await Promise.all([
       getWhatsappAssistantEnabled(),
       listProducts(),
       listOffers(),
       getSuperOferta(),
+      listSucursales(),
+      getDeliverySettings(),
     ]);
 
     return ok({
@@ -35,15 +36,24 @@ export async function GET() {
             saturday: "08:00 a 13:00",
             winterAfternoon: "17:00 a 20:00",
             sunday: "09:30 a 13:00",
+            pickup: "Dentro del horario de atención al público",
+            whatsapp: "Dentro del horario de atención al público",
           },
         })),
         delivery: {
-          onlyHomeDelivery: true,
+          onlyHomeDelivery: false,
           minimumOrder: MIN_ENVIO_TOTAL,
-          coverage: "Todas las zonas",
-          pricing: "flat",
-          flatFee: FLAT_DELIVERY_FEE,
-          originBranchId: sucursales[0]?.id ?? null,
+          coverage: DELIVERY_LOCALITIES.map((locality) => locality.name).join(", "),
+          pricing: deliverySettings.pricingMode,
+          flatFee: deliverySettings.flatFee,
+          pricePerKm: deliverySettings.pricePerKm,
+          freeAllSlots: deliverySettings.freeAllSlots,
+          freeSaturday: deliverySettings.freeSaturday,
+          originBranchId: sucursales.find((branch) => branch.id === deliverySettings.fixedSucursalId)?.id ?? sucursales[0]?.id ?? null,
+          orderCutoffs: {
+            coloniaAvellaneda: "Solicitar idealmente antes de las 08:00 (como máximo 08:30); luego puede pasar al día siguiente.",
+            sanBenito: "Solicitar idealmente antes de las 08:00 (como máximo 08:30); luego puede pasar al día siguiente.",
+          },
         },
         checkout: {
           ordersAreClosedOnWebsite: true,

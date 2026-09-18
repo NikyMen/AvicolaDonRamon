@@ -15,6 +15,9 @@ interface DatosPedido {
   deliveryCode: string | null;
   franjaHoraria: string | null;
   regalo: string | null;
+  entrega: "envio" | "retiro";
+  sucursal: string | null;
+  direccionSucursal: string | null;
 }
 
 // Estado que Mercado Pago manda en la URL (render inmediato).
@@ -83,6 +86,9 @@ function ResultadoContenido() {
           deliveryCode: d?.deliveryCode ?? null,
           franjaHoraria: d?.franjaHoraria ?? null,
           regalo: d?.regalo ?? null,
+          entrega: d?.entrega === "retiro" ? "retiro" : "envio",
+          sucursal: d?.sucursal ?? null,
+          direccionSucursal: d?.direccionSucursal ?? null,
         });
         const e = d?.estado ? mapEstadoInterno(d.estado) : null;
         if (e) {
@@ -165,7 +171,7 @@ function ResultadoContenido() {
           <div className="rounded-2xl bg-green-50 p-5 ring-1 ring-green-600/20">
             <p className="flex items-center justify-center gap-2 text-base font-extrabold text-green-700 md:text-lg">
               <PackageCheck size={22} className="shrink-0" />
-              Ya tenemos todo listo para tu entrega.
+              {pedido?.entrega === "retiro" ? "Estamos preparando tu pedido para retirar." : "Ya tenemos todo listo para tu entrega."}
             </p>
 
             {codigoParaRepartidor && (
@@ -176,9 +182,16 @@ function ResultadoContenido() {
                 <p className="mt-1 break-all text-4xl font-extrabold tracking-[0.2em] text-brand-ink">
                   {codigoParaRepartidor}
                 </p>
-                <p className="mt-3 rounded-xl bg-brand-gold/25 px-4 py-3 text-sm font-bold text-brand-ink">
-                  Informale este código al repartidor al recibir tu pedido.
-                </p>
+                {pedido?.entrega === "retiro" ? (
+                  <p className="mt-3 rounded-xl bg-brand-gold/25 px-4 py-3 text-sm font-bold text-brand-ink">
+                    Presentá este código al retirar en {pedido.sucursal ?? "la sucursal elegida"}.
+                    {pedido.direccionSucursal ? ` ${pedido.direccionSucursal}.` : ""}
+                  </p>
+                ) : (
+                  <p className="mt-3 rounded-xl bg-brand-gold/25 px-4 py-3 text-sm font-bold text-brand-ink">
+                    Informale este código al repartidor al recibir tu pedido.
+                  </p>
+                )}
               </>
             )}
 

@@ -35,8 +35,12 @@ pnpm-debug.log*
 .turbo/
 .vercel/
 .swc/
+.pnpm-store/
 coverage/
 /precios-respaldo*.json
+
+# archivos temporales de trabajo
+/tmp/
 
 # sistema operativo / editor
 Thumbs.db

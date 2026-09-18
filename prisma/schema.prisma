@@ -101,7 +101,7 @@ model Order {
   customerName        String
   phone               String?
   address             String?
-  // Entrega: siempre "envio" a domicilio (no hay retiro por sucursal).
+  // Modalidad elegida en checkout: "envio" a domicilio o "retiro" por sucursal.
   entrega             String?
   // Rango horario de entrega elegido por el cliente ("08-12" o "17-20").
   deliverySlot        String?
@@ -286,13 +286,32 @@ model SuperOferta {
 
 // Integrante del equipo de la pollería (empleado), gestionable desde el admin.
 model DeliverySettings {
+  pricingMode     String   @default("flat")
+  flatFee         Int      @default(2000)
   id              String   @id @default("main")
   pricePerKm      Int      @default(500)
   freeAllSlots    Boolean  @default(false)
   freeSaturday    Boolean  @default(false)
-  fixedSucursalId String   @default("maipu")
+  fixedSucursalId String   @default("don-ramon")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+// Sucursales disponibles para retiro y como referencia operativa del reparto.
+model Sucursal {
+  id        String   @id
+  name      String
+  street    String
+  number    String
+  region    String
+  mapsUrl   String?
+  lat       Float
+  lng       Float
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([region, active])
 }
 
 model Staff {
@@ -312,6 +331,15 @@ model Staff {
   updatedAt    DateTime  @updatedAt
 
   @@index([active])
+}
+
+// Preferencias del panel admin, compartidas por todas las sesiones (no por navegador).
+model AdminUiSettings {
+  id              String   @id @default("main")
+  hiddenModules   String[] @default([])
+  advancedReports Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // Configuración global consultada por el flujo de WhatsApp en n8n.
