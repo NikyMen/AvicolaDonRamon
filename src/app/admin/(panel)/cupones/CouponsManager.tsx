@@ -263,7 +263,7 @@ function CouponModal({ coupon, products, onClose }: { coupon?: Coupon; products:
   }, [priceBenefit, shippingBenefit]);
 
   return (
-    <div className="coupon-overlay fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 pb-6 pt-20 md:pt-24">
+    <div className="coupon-overlay fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-black/40 px-4 pb-6 pt-20 md:pt-24">
       <div className="coupon-modal-in max-h-[calc(100vh-7rem)] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-soft" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>

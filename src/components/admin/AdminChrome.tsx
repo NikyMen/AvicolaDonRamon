@@ -21,6 +21,7 @@ import {
   Menu,
   X,
   Settings,
+  Search,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { ConsultoriaDigitalLogo } from "@/components/ConsultoriaDigitalLogo";
@@ -28,6 +29,33 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
 import { cn } from "@/lib/cn";
 import { WhatsAppIcon } from "@/components/admin/WhatsAppIcon";
 import { hasPermission } from "@/lib/auth/perm-modules";
+import { AdminSearchProvider, useAdminSearch } from "@/lib/admin-search";
+
+/** Páginas que muestran el buscador del header y lo que busca en ellas. */
+const SEARCHABLE_ROUTES: { prefix: string; placeholder: string }[] = [
+  { prefix: "/admin/productos", placeholder: "Buscar productos…" },
+];
+
+function AdminHeaderSearch() {
+  const pathname = usePathname();
+  const search = useAdminSearch();
+  const route = SEARCHABLE_ROUTES.find((r) => pathname.startsWith(r.prefix));
+  if (!route || !search) return null;
+
+  return (
+    <div className="relative hidden min-w-0 sm:block sm:w-56 md:w-72">
+      <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-ink/35" />
+      <input
+        type="search"
+        value={search.query}
+        onChange={(event) => search.setQuery(event.target.value)}
+        placeholder={route.placeholder}
+        aria-label={route.placeholder}
+        className="w-full rounded-lg border border-black/10 bg-black/[.03] py-2 pl-9 pr-3 text-sm text-brand-ink placeholder:text-brand-ink/40 focus:border-brand-red/40 focus:bg-white focus:outline-none"
+      />
+    </div>
+  );
+}
 
 // `perm` = clave del módulo (PERM_MODULES). Sin `perm` el ítem es visible
 // para cualquier sesión de panel (ej. Dashboard).
@@ -148,6 +176,7 @@ export function AdminChrome({
   }, [notificationsOpen, profileOpen]);
 
   return (
+    <AdminSearchProvider>
     <div className="flex min-h-screen bg-[#f1f0ee]">
       {/* Sidebar de escritorio (estática) */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-brand-ink text-white md:flex">
@@ -183,7 +212,7 @@ export function AdminChrome({
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar */}
         <header className="sticky top-0 z-[60] flex items-center justify-between gap-4 border-b border-black/5 bg-white px-4 py-3 md:px-6">
-          <div className="flex items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <button
               onClick={() => setOpen(true)}
               aria-label="Abrir menú"
@@ -191,8 +220,9 @@ export function AdminChrome({
             >
               <Menu size={20} />
             </button>
+            <AdminHeaderSearch />
           </div>
-          <div ref={menusRef} className="flex items-center gap-2 sm:gap-3">
+          <div ref={menusRef} className="flex shrink-0 items-center gap-2 sm:gap-3">
             <div className="relative">
               <button
                 type="button"
@@ -301,5 +331,6 @@ export function AdminChrome({
         </footer>
       </div>
     </div>
+    </AdminSearchProvider>
   );
 }

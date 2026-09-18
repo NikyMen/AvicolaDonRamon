@@ -1,12 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
-import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { Product } from "@/lib/types";
 import { formatARS } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { prepareImageFile } from "@/lib/image-client";
+import { useAdminSearch } from "@/lib/admin-search";
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog";
 import {
   deleteProductAction,
   saveProduct,
@@ -20,21 +22,100 @@ const categoryLabels: Record<string, string> = {
   rebozados: "Rebozados",
 };
 
+type SortKey = "name" | "category" | "price" | "stock" | "status";
+type SortDir = "asc" | "desc";
+
+function statusRank(p: Product): number {
+  if (!p.available) return 0;
+  if (p.stock <= 0) return 1;
+  return 2;
+}
+
+const columns: { key: SortKey; label: string; className?: string }[] = [
+  { key: "name", label: "Producto" },
+  { key: "category", label: "Categoría" },
+  { key: "price", label: "Precio" },
+  { key: "stock", label: "Stock" },
+  { key: "status", label: "Estado" },
+];
+
 export function ProductsManager({ products }: { products: Product[] }) {
+  // Copia local: permite reflejar altas/bajas al instante sin esperar el
+  // viaje al servidor (se resincroniza cuando `products` cambia de verdad).
+  const [items, setItems] = useState(products);
+  useEffect(() => setItems(products), [products]);
+
   // null = cerrado, undefined = crear nuevo, Product = editar
   const [editing, setEditing] = useState<Product | undefined | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [toDelete, setToDelete] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+  const search = useAdminSearch();
+  const query = search?.query.trim().toLowerCase() ?? "";
 
-  function handleDelete(product: Product) {
-    if (!window.confirm(`¿Eliminar el producto “${product.name}”?`)) return;
+  const filtered = useMemo(() => {
+    if (!query) return items;
+    return items.filter(
+      (p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.description?.toLowerCase().includes(query) ||
+        categoryLabels[p.category]?.toLowerCase().includes(query)
+    );
+  }, [items, query]);
 
-    setDeletingId(product.id);
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      switch (sort.key) {
+        case "name":
+          return a.name.localeCompare(b.name) * dir;
+        case "category":
+          return categoryLabels[a.category].localeCompare(categoryLabels[b.category]) * dir;
+        case "price":
+          return (a.price - b.price) * dir;
+        case "stock":
+          return (a.stock - b.stock) * dir;
+        case "status":
+          return (statusRank(a) - statusRank(b)) * dir;
+        default:
+          return 0;
+      }
+    });
+  }, [filtered, sort]);
+
+  function toggleSort(key: SortKey) {
+    setSort((current) => {
+      if (!current || current.key !== key) return { key, dir: "asc" };
+      if (current.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  }
+
+  function handleToggleAvailability(product: Product, available: boolean) {
+    setItems((current) => current.map((p) => (p.id === product.id ? { ...p, available } : p)));
+    void toggleProductAvailability(product.id, available).catch(() => {
+      setItems((current) =>
+        current.map((p) => (p.id === product.id ? { ...p, available: product.available } : p))
+      );
+    });
+  }
+
+  function handleDelete() {
+    if (!toDelete) return;
+    const product = toDelete;
+    setDeleting(true);
     void deleteProductAction(product.id)
       .then((result) => {
-        if (result.error) window.alert(result.error);
-        else window.location.reload();
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setItems((current) => current.filter((p) => p.id !== product.id));
+        setToDelete(null);
       })
-      .finally(() => setDeletingId(null));
+      .finally(() => setDeleting(false));
   }
 
   return (
@@ -42,29 +123,56 @@ export function ProductsManager({ products }: { products: Product[] }) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-brand-ink">Stock</h1>
-          <p className="text-sm text-brand-ink/55">{products.length} productos en el catálogo</p>
+          <p className="text-sm text-brand-ink/55">
+            {sorted.length === items.length
+              ? `${items.length} productos en el catálogo`
+              : `${sorted.length} de ${items.length} productos`}
+          </p>
         </div>
         <button className="btn-primary" onClick={() => setEditing(undefined)}>
           <Plus size={16} /> Agregar producto
         </button>
       </div>
 
+      {error && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+      )}
+
       <div className="overflow-hidden rounded-2xl bg-white shadow-soft">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-brand-cream text-left text-xs uppercase tracking-wide text-brand-ink/50">
               <tr>
-                <th className="px-4 py-3 font-semibold">Producto</th>
-                <th className="px-4 py-3 font-semibold">Categoría</th>
-                <th className="px-4 py-3 font-semibold">Precio</th>
-                <th className="px-4 py-3 font-semibold">Stock</th>
-                <th className="px-4 py-3 font-semibold">Estado</th>
-                <th className="px-4 py-3 font-semibold text-right">Acciones</th>
+                {columns.map((col) => (
+                  <th key={col.key} className="px-4 py-3 font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort(col.key)}
+                      className="inline-flex items-center gap-1 hover:text-brand-ink"
+                    >
+                      {col.label}
+                      {sort?.key === col.key ? (
+                        sort.dir === "asc" ? (
+                          <ArrowUp size={12} />
+                        ) : (
+                          <ArrowDown size={12} />
+                        )
+                      ) : (
+                        <ArrowUpDown size={12} className="opacity-40" />
+                      )}
+                    </button>
+                  </th>
+                ))}
+                <th className="px-4 py-3 text-right font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((p) => (
-                <tr key={p.id} className="border-t border-black/5 hover:bg-brand-cream/50">
+              {sorted.map((p) => (
+                <tr
+                  key={p.id}
+                  onClick={() => setEditing(p)}
+                  className="cursor-pointer border-t border-black/5 hover:bg-brand-cream/50"
+                >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {p.image ? (
@@ -101,7 +209,10 @@ export function ProductsManager({ products }: { products: Product[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => toggleProductAvailability(p.id, !p.available)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleAvailability(p, !p.available);
+                      }}
                       title="Cambiar disponibilidad"
                       className={cn(
                         "chip cursor-pointer",
@@ -116,29 +227,51 @@ export function ProductsManager({ products }: { products: Product[] }) {
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-2">
                       <button
-                        onClick={() => setEditing(p)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditing(p);
+                        }}
                         className="inline-flex items-center gap-1 rounded-lg border border-black/10 px-2.5 py-1.5 text-xs font-semibold text-brand-ink/70 hover:bg-black/5"
                       >
                         <Pencil size={14} /> Editar
                       </button>
                       <button
-                        onClick={() => handleDelete(p)}
-                        disabled={deletingId === p.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setError("");
+                          setToDelete(p);
+                        }}
                         title="Eliminar producto"
-                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-wait disabled:opacity-50"
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
                       >
-                        <Trash2 size={14} /> {deletingId === p.id ? "Eliminando…" : "Eliminar"}
+                        <Trash2 size={14} /> Eliminar
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {sorted.length === 0 && (
+                <tr>
+                  <td colSpan={columns.length + 1} className="px-4 py-10 text-center text-brand-ink/50">
+                    No encontramos productos que coincidan con la búsqueda.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
       {editing !== null && <ProductModal product={editing} onClose={() => setEditing(null)} />}
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title={`¿Eliminar “${toDelete?.name}”?`}
+        description="Esta acción no se puede deshacer."
+        pending={deleting}
+        onConfirm={handleDelete}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   );
 }
@@ -201,7 +334,7 @@ function ProductModal({ product, onClose }: { product?: Product; onClose: () => 
   }, [state.ok, onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleClose}>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4" onClick={handleClose}>
       <div
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-soft"
         onClick={(e) => e.stopPropagation()}
