@@ -4,6 +4,8 @@ El script afecta únicamente productos no archivados cuyo ID empieza con `cuanti
 Divide el precio actual y el precio anterior por 10, redondeando a pesos enteros como
 el modelo existente. No modifica pedidos históricos ni la superoferta independiente.
 La vista previa debe revisarse: no detecta por sí sola cuáles ya estaban correctos.
+Los productos con precio cero (por ejemplo, VARIOS) se omiten sin modificarlos;
+se informa el conteo y se registran en `skippedZeroPrice` dentro del respaldo.
 Se pueden quitar filas del respaldo para excluir productos, sin cambiar sus valores.
 
 ## Preparación

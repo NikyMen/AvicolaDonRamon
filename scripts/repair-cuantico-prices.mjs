@@ -21,13 +21,15 @@ try {
       select: { id: true, name: true, price: true, oldPrice: true, updatedAt: true },
       orderBy: { id: 'asc' },
     });
-    const rows = products.map(p => ({
+    const skippedZeroPrice = products.filter(p => p.price === 0);
+    console.log(`${skippedZeroPrice.length} productos con precio cero omitidos; quedan sin cambios.`);
+    const rows = products.filter(p => p.price !== 0).map(p => ({
       ...p, updatedAt: p.updatedAt.toISOString(),
       nextPrice: Math.round(p.price / 10),
       nextOldPrice: p.oldPrice === null ? null : Math.round(p.oldPrice / 10),
     }));
     validateRows(rows);
-    await writeFile(path, JSON.stringify({ version: 1, divisor: 10, createdAt: new Date().toISOString(), rows }, null, 2), { flag: 'wx', mode: 0o600 });
+    await writeFile(path, JSON.stringify({ version: 1, divisor: 10, createdAt: new Date().toISOString(), skippedZeroPrice, rows }, null, 2), { flag: 'wx', mode: 0o600 });
     console.table(rows.slice(0, 20).map(({ id, name, price, nextPrice }) => ({ id, name, antes: price, despues: nextPrice })));
     console.log(`${rows.length} productos Cuántico. Vista previa y respaldo completo: ${path}`);
     console.log('Sin cambios en la base. Revisá el archivo: la división afecta a TODOS los productos listados, incluidos sus precios anteriores.');
