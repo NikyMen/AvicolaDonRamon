@@ -2,7 +2,7 @@
 export function cuanticoPricePolicy(env: Record<string, string | undefined>) {
   const divisor = Number(env.CUANTICO_PRICE_DIVISOR ?? "1");
   const maxChangePercent = Number(env.CUANTICO_MAX_PRICE_CHANGE_PERCENT ?? "35");
-  if (![1, 10].includes(divisor)) throw new Error("CUANTICO_PRICE_DIVISOR debe ser 1 o 10.");
+  if (![1, 10, 100, 1000].includes(divisor)) throw new Error("CUANTICO_PRICE_DIVISOR debe ser 1, 10, 100 o 1000.");
   if (!Number.isFinite(maxChangePercent) || maxChangePercent <= 0 || maxChangePercent > 100) {
     throw new Error("CUANTICO_MAX_PRICE_CHANGE_PERCENT debe ser mayor a 0 y hasta 100.");
   }

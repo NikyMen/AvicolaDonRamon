@@ -24,6 +24,13 @@ assert.throws(() => cuanticoPricePolicy({ CUANTICO_PRICE_DIVISOR: '' }), /debe/)
 assert.throws(() => cuanticoPricePolicy({ CUANTICO_MAX_PRICE_CHANGE_PERCENT: 'NaN' }), /debe/);
 assert.equal(validatedCuanticoPrice(38500, 38500, cuanticoPricePolicy({})), 38500);
 
+// Divisor 1000: el origen trae tres ceros de más y el precio guardado ya es el real.
+const milPolicy = cuanticoPricePolicy({ CUANTICO_PRICE_DIVISOR: '1000' });
+assert.equal(validatedCuanticoPrice(3600000, 3600, milPolicy), 3600);
+assert.equal(validatedCuanticoPrice(147500000, undefined, milPolicy), 147500);
+assert.throws(() => validatedCuanticoPrice(3600, 3600, milPolicy), /Variación/);
+assert.throws(() => cuanticoPricePolicy({ CUANTICO_PRICE_DIVISOR: '500' }), /debe/);
+
 // Verifica el importador real con dobles: ninguna escritura si una fila es anómala.
 process.env.CUANTICO_ID_EMPRESA = 'test';
 process.env.CUANTICO_TOKEN = 'test';
@@ -56,4 +63,34 @@ assert.equal(globalThis.priceTestWrites, 2);
 rows = [rows[0], rows[0]];
 await assert.rejects(syncCuanticoProducts(), /duplicado/);
 assert.equal(globalThis.priceTestWrites, 2);
-console.log('OK: escala, reimportación, cambio anómalo, decimales y lote bloqueado sin escrituras.');
+// Corrección masiva: selección por umbral, divisor y validación del respaldo.
+const { parseArgs, buildPlan, validateRows, defaultMinPrice, planFromFile } = await import('./repair-cuantico-prices.mjs');
+assert.deepEqual(parseArgs(['preview', 'x.json', '--divisor=1000']), { mode: 'preview', file: 'x.json', divisor: 1000, minPrice: 1000000 });
+assert.deepEqual(parseArgs(['preview', 'x.json', '--divisor=1000', '--min-precio=500000']), { mode: 'preview', file: 'x.json', divisor: 1000, minPrice: 500000 });
+assert.deepEqual(parseArgs(['apply', 'x.json']), { mode: 'apply', file: 'x.json', divisor: undefined, minPrice: undefined });
+assert.throws(() => parseArgs(['preview', 'x.json']), /divisor/);
+assert.throws(() => parseArgs(['preview', 'x.json', '--divisor=3']), /divisor/);
+assert.throws(() => parseArgs(['apply', 'x.json', '--divisor=1000']), /respaldo/);
+assert.equal(defaultMinPrice(1000), 1000000);
+
+const fecha = new Date('2026-09-20T12:00:00.000Z');
+const catalogo = [
+  { id: 'cuantico-1', name: 'Pata muslo', price: 3600000, oldPrice: null, updatedAt: fecha },
+  { id: 'cuantico-2', name: 'Caja pechuga', price: 147500000, oldPrice: 150000000, updatedAt: fecha },
+  { id: 'cuantico-3', name: 'Ya corregido', price: 9500, oldPrice: null, updatedAt: fecha },
+  { id: 'cuantico-4', name: 'VARIOS', price: 0, oldPrice: null, updatedAt: fecha },
+];
+const plan = buildPlan(catalogo, { divisor: 1000, minPrice: defaultMinPrice(1000) });
+assert.deepEqual(plan.rows.map(r => [r.id, r.nextPrice, r.nextOldPrice]), [['cuantico-1', 3600, null], ['cuantico-2', 147500, 150000]]);
+assert.deepEqual(plan.skippedBelowMin.map(r => r.id), ['cuantico-3']);
+assert.deepEqual(plan.skippedZeroPrice.map(r => r.id), ['cuantico-4']);
+validateRows(plan.rows, 1000, defaultMinPrice(1000));
+// Un precio ya corregido no puede colarse en el lote ni volver a dividirse.
+assert.throws(() => validateRows([...plan.rows, { ...catalogo[2], updatedAt: fecha.toISOString(), nextPrice: 10, nextOldPrice: null }], 1000, defaultMinPrice(1000)), /umbral/);
+assert.throws(() => validateRows(plan.rows, 1000, 200000000), /umbral/);
+assert.throws(() => validateRows(plan.rows, 10, defaultMinPrice(1000)), /inconsistente/);
+assert.throws(() => validateRows([], 1000, 1000000), /No hay productos/);
+assert.equal(planFromFile({ version: 1, divisor: 10, rows: [] }).minPrice, 1);
+assert.throws(() => planFromFile({ version: 2, divisor: 7, rows: [] }), /Formato/);
+
+console.log('OK: escala, reimportación, cambio anómalo, decimales, lote bloqueado sin escrituras y corrección masiva por umbral.');
