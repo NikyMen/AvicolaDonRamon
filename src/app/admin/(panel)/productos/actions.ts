@@ -6,6 +6,8 @@ import {
   createProduct,
   deleteProduct,
   getProduct,
+  pausarCatalogo,
+  reanudarCatalogo,
   updateProduct,
   NoDatabaseError,
 } from "@/lib/repo";
@@ -116,6 +118,44 @@ export async function toggleProductAvailability(id: string, available: boolean):
     return;
   }
   revalidateCatalog();
+}
+
+export interface BulkPauseState {
+  ok?: boolean;
+  error?: string;
+  count?: number;
+}
+
+/**
+ * Saca de la venta todo el catalogo. La pantalla pide mantener el boton
+ * apretado cinco segundos antes de llamar aca: apagar la tienda entera no
+ * puede depender de un click de mas.
+ */
+export async function pauseAllProducts(): Promise<BulkPauseState> {
+  const denied = await requireAdmin();
+  if (denied) return { error: denied };
+  try {
+    const count = await pausarCatalogo();
+    revalidateCatalog();
+    return { ok: true, count };
+  } catch (error) {
+    if (error instanceof NoDatabaseError) return { error: error.message };
+    return { error: "No se pudo pausar el catálogo." };
+  }
+}
+
+/** Vuelve a poner a la venta lo que se pauso con el boton, y nada mas. */
+export async function resumeAllProducts(): Promise<BulkPauseState> {
+  const denied = await requireAdmin();
+  if (denied) return { error: denied };
+  try {
+    const count = await reanudarCatalogo();
+    revalidateCatalog();
+    return { ok: true, count };
+  } catch (error) {
+    if (error instanceof NoDatabaseError) return { error: error.message };
+    return { error: "No se pudo reanudar el catálogo." };
+  }
 }
 
 export async function deleteProductAction(id: string): Promise<SaveProductState> {

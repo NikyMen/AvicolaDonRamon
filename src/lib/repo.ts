@@ -559,6 +559,42 @@ export async function updateProduct(
  * Archiva un producto y desactiva promociones que ya no pueden venderlo.
  * Conserva la fila para no romper pedidos, cupones ni analítica histórica.
  */
+/**
+ * Saca de la venta todo el catalogo de una vez.
+ *
+ * Sirve para cerrar la tienda de golpe: se acabo la mercaderia, se corta la
+ * cadena de frio, el local cierra por unos dias. Marcar producto por producto
+ * no es opcion cuando hay miles.
+ *
+ * Solo toca lo que estaba a la venta, y deja constancia de que lo apago este
+ * boton. Asi `reanudarCatalogo` puede encender exactamente lo mismo y no
+ * revivir lo que alguien habia pausado a mano por otro motivo.
+ */
+export async function pausarCatalogo(): Promise<number> {
+  ensureDb();
+  const { count } = await prisma.product.updateMany({
+    where: { deletedAt: null, available: true },
+    data: { available: false, pausedAt: new Date() },
+  });
+  return count;
+}
+
+/** Vuelve a poner a la venta lo que apago `pausarCatalogo`, y nada mas. */
+export async function reanudarCatalogo(): Promise<number> {
+  ensureDb();
+  const { count } = await prisma.product.updateMany({
+    where: { deletedAt: null, pausedAt: { not: null } },
+    data: { available: true, pausedAt: null },
+  });
+  return count;
+}
+
+/** Cuantos productos estan pausados por el boton, para poder ofrecer deshacer. */
+export async function contarPausadosEnMasa(): Promise<number> {
+  if (!hasDatabase) return 0;
+  return prisma.product.count({ where: { deletedAt: null, pausedAt: { not: null } } });
+}
+
 export async function deleteProduct(id: string): Promise<Product | null> {
   if (!hasDatabase) {
     const product = mockProducts.find((item) => item.id === id);

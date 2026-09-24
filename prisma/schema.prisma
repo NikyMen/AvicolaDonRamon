@@ -62,6 +62,10 @@ model Product {
   stock       Int       @default(0)
   // Baja lógica: conserva relaciones e historial, pero lo excluye del catálogo.
   deletedAt   DateTime?
+  // Momento en que el boton de pausar todo lo saco del catalogo. Distingue
+  // esa pausa masiva de la que alguien hizo a mano producto por producto,
+  // para que reactivar todo no encienda lo que estaba apagado a proposito.
+  pausedAt    DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

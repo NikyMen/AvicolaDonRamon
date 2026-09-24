@@ -15,6 +15,7 @@ import {
   toggleProductAvailability,
   type SaveProductState,
 } from "./actions";
+import { PausarCatalogo } from "./PausarCatalogo";
 
 const categoryLabels: Record<string, string> = {
   cortes: "Cortes",
@@ -39,7 +40,13 @@ const columns: { key: SortKey; label: string; className?: string }[] = [
   { key: "status", label: "Estado" },
 ];
 
-export function ProductsManager({ products }: { products: Product[] }) {
+export function ProductsManager({
+  products,
+  pausados,
+}: {
+  products: Product[];
+  pausados: number;
+}) {
   // Copia local: permite reflejar altas/bajas al instante sin esperar el
   // viaje al servidor (se resincroniza cuando `products` cambia de verdad).
   const [items, setItems] = useState(products);
@@ -129,9 +136,12 @@ export function ProductsManager({ products }: { products: Product[] }) {
               : `${sorted.length} de ${items.length} productos`}
           </p>
         </div>
-        <button className="btn-primary" onClick={() => setEditing(undefined)}>
-          <Plus size={16} /> Agregar producto
-        </button>
+        <div className="flex flex-wrap items-start justify-end gap-3">
+          <PausarCatalogo pausados={pausados} />
+          <button className="btn-primary" onClick={() => setEditing(undefined)}>
+            <Plus size={16} /> Agregar producto
+          </button>
+        </div>
       </div>
 
       {error && (
