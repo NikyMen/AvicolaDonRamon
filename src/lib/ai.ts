@@ -1,13 +1,25 @@
 import "server-only";
 import { getDeliverySettings, getSuperOferta, listCoupons, listCustomers, listOrders, listProducts, listSucursales } from "./repo";
-import { formatARS } from "./format";
 import { DELIVERY_LOCALITIES, MIN_ENVIO_TOTAL } from "./geo";
 import { getAnalyticsSummary } from "./analytics";
 import type { Order } from "./types";
 import {
   listWhatsappKnowledge,
+  selectRelevantProducts,
   selectRelevantWhatsappKnowledge,
 } from "./whatsapp-assistant";
+
+/**
+ * Precio para el prompt, en numero pelado y con la moneda en palabras.
+ *
+ * El formato argentino separa los miles con punto, y el modelo lee ese punto
+ * como coma decimal: "$1.846" le llega como 1,846 y lo devuelve al cliente
+ * como 1.846.000. Pasaba con todos los precios del catalogo. Sin puntos no
+ * hay ambiguedad posible.
+ */
+function pesos(monto: number): string {
+  return `${Math.round(monto)} pesos`;
+}
 
 /**
  * Asistente de atención de la tienda, sobre la API de DeepSeek.
@@ -52,14 +64,19 @@ async function buildSystemPrompt(message = ""): Promise<string> {
     getDeliverySettings(),
   ]);
   const relevantKnowledge = selectRelevantWhatsappKnowledge(knowledge, message);
-  const catalogo = products
+  // Con miles de articulos el catalogo entero no entra en el mensaje: se
+  // manda solo lo que tiene que ver con lo que pregunto el cliente.
+  const relevantProducts = selectRelevantProducts(products, message);
+  const catalogo = relevantProducts
     .map(
       (p) =>
-        `- ${p.name} (${p.category}): ${formatARS(p.price)}${
+        `- ${p.name} (${p.category}): ${pesos(p.price)}${
           p.available && p.stock > 0 ? ` [stock: ${p.stock}]` : " [SIN STOCK]"
         }${p.description ? ` — ${p.description}` : ""}`
     )
     .join("\n");
+
+  const catalogoRecortado = relevantProducts.length < products.length;
 
   const locales = sucursales
     .map((s) => `- ${s.name}: ${s.address}${s.phone ? ` · Tel ${s.phone}` : ""}`)
@@ -79,6 +96,7 @@ REGLAS:
 - Identificá al cliente por el número de teléfono cuando el canal te lo provea. Usá su nombre solo si está confirmado; nunca le pidas nuevamente datos que ya estén en el contexto.
 - Si te preguntan otra cosa, decí amablemente que solo podés ayudar con temas de la pollería.
 - Usá ÚNICAMENTE los precios y productos de la lista de abajo. Si algo no está, decí que no figura y ofrecé consultar por WhatsApp. NUNCA inventes precios, productos ni promociones.
+- Los precios del catálogo están en pesos, en número entero y sin separadores. Escribilos tal cual, sin agregarles ceros ni convertirlos: 1846 es mil ochocientos cuarenta y seis pesos, no un millón.
 - Si un producto está marcado SIN STOCK, avisá que no hay por el momento. Si te preguntan cuánto hay, usá el número de stock de la lista.
 - No prometas plazos de entrega exactos ni descuentos que no estén listados.
 - Cuando el cliente pida un producto ambiguo (por ejemplo, "cajón de pollo"), preguntá antes de confirmar: marca, presentación/peso y si lleva menudos. No reemplaces silenciosamente una opción por otra.
@@ -94,9 +112,9 @@ REGLAS:
 
 ENVÍOS:
 - Localidades habilitadas: ${DELIVERY_LOCALITIES.map((locality) => locality.name).join(", ")}.
-- ${deliverySettings.freeAllSlots ? "El envío es gratuito." : deliverySettings.pricingMode === "flat" ? `La tarifa base de envío es ${formatARS(deliverySettings.flatFee)}.` : "El envío se calcula por distancia y se confirma en el checkout."}
+- ${deliverySettings.freeAllSlots ? "El envío es gratuito." : deliverySettings.pricingMode === "flat" ? `La tarifa base de envío es ${pesos(deliverySettings.flatFee)}.` : "El envío se calcula por distancia y se confirma en el checkout."}
 - ${deliverySettings.freeSaturday ? "Los envíos de los sábados están bonificados." : "No prometas bonificaciones que no aparezcan en el checkout."}
-- La compra mínima configurada es ${formatARS(MIN_ENVIO_TOTAL)}.
+- La compra mínima configurada es ${pesos(MIN_ENVIO_TOTAL)}.
 - Para Colonia Avellaneda y San Benito, los pedidos de reparto del día deben quedar solicitados idealmente antes de las 08:00 (como máximo 08:30); después pueden pasar al día siguiente. Confirmá siempre según la disponibilidad del negocio, sin prometer entrega.
 - No inventes tiempos de entrega.
 - La dirección se carga con calle y altura solamente (sin piso, depto ni barrio).
@@ -117,7 +135,7 @@ ${locales}
 PAUTAS APRENDIDAS Y EJEMPLOS REVISADOS POR EL ADMINISTRADOR:
 ${learnedRules}
 
-CATÁLOGO:
+CATÁLOGO${catalogoRecortado ? " (solo los productos relacionados con esta consulta; el negocio tiene más)" : ""}:
 ${catalogo}`;
 }
 

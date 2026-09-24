@@ -33,6 +33,21 @@ const SEARCH_STOP_WORDS = new Set([
   "uno",
   "unos",
   "unas",
+  // Saludos y muletillas: no describen ningun producto y ensucian la busqueda.
+  // "hola" llegaba a enganchar "queso holanda" por parecido de letras.
+  "hola",
+  "buenas",
+  "buenos",
+  "dias",
+  "tardes",
+  "noches",
+  "gracias",
+  "favor",
+  "dame",
+  "decime",
+  "pasame",
+  "precio",
+  "precios",
 ]);
 
 function searchable(value: string): string {
@@ -73,6 +88,65 @@ export function selectRelevantWhatsappProducts(
     .sort((a, b) => b.score - a.score || a.index - b.index);
 
   return ranked.slice(0, maxProducts).map(({ product }) => product);
+}
+
+/**
+ * Quita el plural mas comun del espanol para que "pechugas" encuentre
+ * "pechuga" y "cajas" encuentre "caja". No es un lematizador: alcanza con
+ * que dos formas de la misma palabra terminen en la misma raiz.
+ */
+function raiz(term: string): string {
+  if (term.length > 4 && term.endsWith("es")) return term.slice(0, -2);
+  if (term.length > 3 && term.endsWith("s")) return term.slice(0, -1);
+  return term;
+}
+
+/**
+ * Recorta el catalogo a los productos que tienen que ver con la consulta.
+ *
+ * Mandarle el catalogo entero a la IA funciona con un mostrador chico, pero un
+ * mayorista con miles de articulos desborda el mensaje: la lista se corta, el
+ * modelo se pierde entre renglones y termina diciendo que no tiene algo que si
+ * tiene. Filtrar por las palabras del cliente deja una lista que entra y que el
+ * modelo puede leer de verdad.
+ *
+ * Los catalogos chicos se mandan enteros: ahi el recorte solo podria esconder
+ * un producto que la IA habria encontrado sola.
+ */
+export function selectRelevantProducts<T extends { name: string; category: string; description?: string }>(
+  products: T[],
+  message: string,
+  options: { max?: number; sinRecorte?: number } = {}
+): T[] {
+  const max = options.max ?? 80;
+  const sinRecorte = options.sinRecorte ?? 150;
+  if (products.length <= sinRecorte) return products;
+
+  const terms = searchTerms(message).map(raiz);
+  if (terms.length === 0) return products.slice(0, max);
+
+  const scored = products.map((product, index) => {
+    const nombre = searchable(product.name).split(" ");
+    const otros = searchable(`${product.category} ${product.description ?? ""}`).split(" ");
+    const pega = (palabras: string[], term: string) =>
+      palabras.some((palabra) => {
+        const base = raiz(palabra);
+        return base === term || (term.length >= 4 && base.startsWith(term));
+      });
+    const relevance = terms.reduce(
+      (score, term) => score + (pega(nombre, term) ? 10 : 0) + (pega(otros, term) ? 2 : 0),
+      0
+    );
+    return { product, index, relevance };
+  });
+
+  const conPuntaje = scored.filter((x) => x.relevance > 0);
+  // Sin ninguna coincidencia es preferible mandar una muestra a mandar nada:
+  // la IA igual tiene que poder decir que consulte por otra via.
+  if (conPuntaje.length === 0) return products.slice(0, max);
+
+  conPuntaje.sort((a, b) => b.relevance - a.relevance || a.index - b.index);
+  return conPuntaje.slice(0, max).map((x) => x.product);
 }
 
 /**
