@@ -234,11 +234,29 @@ export interface WhatsappKnowledge {
 export interface WhatsappContact {
   id: string;
   leadId?: string;
+  kommoContactId?: string;
   phone: string;
   name?: string;
   notes?: string;
+  /** Campo "Condición comercial" de Kommo, ej. "Cuenta corriente". */
+  commercialCondition?: string;
   assistantPaused: boolean;
   lastSeenAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Producto de la lista mayorista (clientes en cuenta corriente). */
+export interface WholesaleProduct {
+  id: string;
+  code?: string;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  /** null = sin control de stock (se ofrece mientras esté disponible). */
+  stock: number | null;
+  available: boolean;
   createdAt: string;
   updatedAt: string;
 }

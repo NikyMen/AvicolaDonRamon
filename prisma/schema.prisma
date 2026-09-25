@@ -370,18 +370,44 @@ model WhatsappKnowledge {
 
 // Contactos vistos por n8n. No guarda mensajes ni información sensible.
 model WhatsappContact {
-  id              String    @id @default(cuid())
-  leadId          String?   @unique
-  phone           String    @unique
-  name            String?
-  notes           String?
-  assistantPaused Boolean   @default(false)
-  lastSeenAt      DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  interactions    WhatsappInteraction[]
+  id                  String    @id @default(cuid())
+  leadId              String?   @unique
+  // Contacto de Kommo dueño del campo "Condición comercial".
+  kommoContactId      String?
+  phone               String    @unique
+  name                String?
+  notes               String?
+  // Valor del campo "Condición comercial" de Kommo (ej. "Cuenta corriente").
+  // Se sincroniza en ambos sentidos: el panel escribe en Kommo y Kommo avisa
+  // por webhook o en cada mensaje que n8n consulta.
+  commercialCondition String?
+  assistantPaused     Boolean   @default(false)
+  lastSeenAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  interactions        WhatsappInteraction[]
 
   @@index([lastSeenAt])
+  @@index([kommoContactId])
+}
+
+// Lista de precios mayorista, separada del catálogo minorista. El asistente la
+// usa en lugar del catálogo cuando el contacto está en cuenta corriente.
+model WholesaleProduct {
+  id          String   @id @default(cuid())
+  // Código opcional (ERP, planilla) para actualizar por importación o API.
+  code        String?  @unique
+  name        String
+  description String   @default("")
+  category    String   @default("")
+  price       Int
+  // Vacío = sin control de stock: se ofrece mientras esté disponible.
+  stock       Int?
+  available   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([available, name])
 }
 
 model WhatsappInteraction {

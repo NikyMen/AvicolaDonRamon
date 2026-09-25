@@ -73,7 +73,7 @@ criterios, decisiones del plan y tareas. -->
 - **RF-03:** Reducir el consumo de IA por consulta conservando el acceso a todo el catálogo. PENDIENTE acordar presupuesto y calidad esperada.
 - **RF-04:** Informar por separado horarios de salón, atención por WhatsApp y retiro de pedidos, según local y día.
 - **RF-05:** Reconocer al cliente por su teléfono y hacer visible su identidad al equipo. PENDIENTE definir fuente y casos sin coincidencia o con duplicados.
-- **RF-06:** Reconocer la condición comercial de Kommo. Por decisión inicial del usuario, todas las opciones usan el mismo precio, incluida cuenta corriente. Reconocerla no autoriza por sí solo crédito, límite ni confirmación de venta.
+- **RF-06:** Reconocer la condición comercial de Kommo. Por decisión inicial del usuario, todas las opciones usan el mismo precio, incluida cuenta corriente. Reconocerla no autoriza por sí solo crédito, límite ni confirmación de venta. **Revisión 2026-09-25:** cuenta corriente pasa a usar una lista mayorista aparte, con la condición sincronizada entre la web y Kommo; ver `docs/cuenta-corriente-kommo.md`.
 - **RF-07:** Guardar consultas pendientes para que el equipo pueda continuarlas. PENDIENTE definir responsables y cómo se cierran.
 - **RF-08:** Identificar clientes que dejaron de comprar y enviarles mensajes. Solicitud del grupo pendiente de acordar para esta entrega: plazo de inactividad, historial de compras, destinatarios, frecuencia y aprobación de envíos.
 - **RF-09:** Derivar automáticamente casos y pedidos especiales a una persona. PENDIENTE definir cuáles y cómo se retoma la atención.

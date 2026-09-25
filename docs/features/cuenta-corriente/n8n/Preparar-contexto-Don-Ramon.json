@@ -1,0 +1,18 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const base = $('Resolver contacto Don Ramon').first().json;\nconst rawResponse = $input.first().json ?? {};\n\nlet response = rawResponse;\n\nif (typeof rawResponse.data === 'string') {\n  try {\n    response = JSON.parse(rawResponse.data);\n  } catch {\n    response = rawResponse;\n  }\n} else if (rawResponse.data && typeof rawResponse.data === 'object') {\n  response = rawResponse.data;\n}\n\nconst contact = response;\n\nconst fields = Array.isArray(contact.custom_fields_values)\n  ? contact.custom_fields_values\n  : [];\n\nconst getFieldValue = (field) => {\n  if (!Array.isArray(field?.values)) return '';\n\n  const value = field.values.find(\n    (item) => item?.value !== undefined && item?.value !== null\n  );\n\n  return String(value?.value ?? value?.enum_name ?? '').trim();\n};\n\nconst phoneField = fields.find(\n  (field) =>\n    field?.field_code === 'PHONE' ||\n    /telefono|teléfono|phone/i.test(\n      String(field?.field_name ?? field?.name ?? '')\n    )\n);\n\nconst commercialField = fields.find((field) =>\n  /condicion comercial|condición comercial/i.test(\n    String(field?.field_name ?? field?.name ?? '')\n  )\n);\n\nconst phone = getFieldValue(phoneField)\n  .replace(/[^\\d+]/g, '')\n  .trim();\n\nconst commercialCondition = getFieldValue(commercialField);\n\n// Solo es confiable si Kommo devolvió el contacto: un campo vacío equivale a\n// \"Sin definir\", pero si la consulta falló la web conserva la condición que ya\n// tenía (así un error de Kommo no saca a nadie de cuenta corriente).\nconst commercialConditionKnown = Boolean(contact?.id);\n\nreturn [\n  {\n    json: {\n      ...base,\n      phone,\n      name: base.name || contact?.name || '',\n      contactId: String(contact?.id ?? base.contactId ?? ''),\n      commercialCondition,\n      commercialConditionKnown,\n      sessionId: 'lead:' + base.leadId,\n      currentLead: base.currentLead,\n    },\n  },\n];\n"
+      },
+      "id": "1749902b-4d28-400e-aa43-7ec00a292539",
+      "name": "Preparar contexto Don Ramon",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2544,
+        640
+      ]
+    }
+  ],
+  "connections": {}
+}

@@ -3,7 +3,8 @@ import "server-only";
 import { hasDatabase, prisma } from "./prisma";
 import { NoDatabaseError } from "./repo";
 import { normalizePhone } from "./phone";
-import type { Product, WhatsappContact, WhatsappKnowledge } from "./types";
+import type { KommoContactConditionUpdate } from "./commercial-condition";
+import type { WhatsappContact, WhatsappKnowledge } from "./types";
 
 export const WHATSAPP_SETTINGS_ID = "main";
 
@@ -67,11 +68,13 @@ function searchTerms(value: string): string[] {
   )].slice(0, 24);
 }
 
-export function selectRelevantWhatsappProducts(
-  products: Product[],
+type SearchableProduct = { available: boolean; name: string; category: string; description: string };
+
+export function selectRelevantWhatsappProducts<T extends SearchableProduct>(
+  products: T[],
   message: string,
   options: { maxProducts?: number } = {}
-): Product[] {
+): T[] {
   const terms = searchTerms(message);
   const isCatalogRequest = /\blista\b|\bcatalogo\b|\bcatalog\b|\btodos\b|\bproductos\b|\bprecios\b|\bque tienen\b/.test(
     searchable(message)
@@ -228,9 +231,11 @@ function mapKnowledge(row: {
 function mapContact(row: {
   id: string;
   leadId?: string | null;
+  kommoContactId?: string | null;
   phone: string;
   name: string | null;
   notes: string | null;
+  commercialCondition?: string | null;
   assistantPaused: boolean;
   lastSeenAt: Date | null;
   createdAt: Date;
@@ -239,9 +244,11 @@ function mapContact(row: {
   return {
     id: row.id,
     leadId: row.leadId ?? undefined,
+    kommoContactId: row.kommoContactId ?? undefined,
     phone: row.phone,
     name: row.name ?? undefined,
     notes: row.notes ?? undefined,
+    commercialCondition: row.commercialCondition ?? undefined,
     assistantPaused: row.assistantPaused,
     lastSeenAt: row.lastSeenAt?.toISOString(),
     createdAt: row.createdAt.toISOString(),
@@ -355,27 +362,87 @@ export async function saveWhatsappContact(input: {
   return mapContact(row);
 }
 
-/** Registra la interacción que n8n consulta sin guardar mensajes. */
-export async function touchWhatsappContact(phoneRaw: string, name?: string, leadId?: string): Promise<WhatsappContact> {
+export async function getWhatsappContact(id: string): Promise<WhatsappContact | null> {
+  if (!hasDatabase) return null;
+  const row = await prisma.whatsappContact.findUnique({ where: { id } });
+  return row ? mapContact(row) : null;
+}
+
+/**
+ * Registra la interacción que n8n consulta sin guardar mensajes. Kommo es la
+ * fuente de verdad de la condición comercial: si n8n la informa, se copia.
+ */
+export async function touchWhatsappContact(
+  phoneRaw: string,
+  name?: string,
+  leadId?: string,
+  kommo: { kommoContactId?: string; commercialCondition?: string } = {}
+): Promise<WhatsappContact> {
   ensureDatabase();
   const phone = normalizePhone(phoneRaw);
   const cleanName = name?.trim();
   const cleanLeadId = leadId?.trim() || undefined;
+  const kommoData = {
+    ...(kommo.kommoContactId ? { kommoContactId: kommo.kommoContactId } : {}),
+    ...(kommo.commercialCondition ? { commercialCondition: kommo.commercialCondition } : {}),
+  };
   const row = await prisma.whatsappContact.upsert({
     where: { phone },
     update: {
       lastSeenAt: new Date(),
       ...(cleanName ? { name: cleanName } : {}),
       ...(cleanLeadId ? { leadId: cleanLeadId } : {}),
+      ...kommoData,
     },
     create: {
       phone,
       leadId: cleanLeadId,
       name: cleanName || null,
       lastSeenAt: new Date(),
+      ...kommoData,
     },
   });
   return mapContact(row);
+}
+
+export async function setWhatsappContactCommercialCondition(
+  id: string,
+  commercialCondition: string,
+  kommoContactId?: string
+): Promise<WhatsappContact> {
+  ensureDatabase();
+  const row = await prisma.whatsappContact.update({
+    where: { id },
+    data: { commercialCondition, ...(kommoContactId ? { kommoContactId } : {}) },
+  });
+  return mapContact(row);
+}
+
+/**
+ * Aplica los cambios avisados por el webhook de Kommo. Busca por contacto de
+ * Kommo y, si todavía no está vinculado, por alguno de sus teléfonos.
+ */
+export async function applyKommoCommercialConditions(updates: KommoContactConditionUpdate[]): Promise<number> {
+  ensureDatabase();
+  let changed = 0;
+  for (const update of updates) {
+    const byContact = await prisma.whatsappContact.updateMany({
+      where: { kommoContactId: update.kommoContactId },
+      data: { commercialCondition: update.commercialCondition },
+    });
+    if (byContact.count > 0) {
+      changed += byContact.count;
+      continue;
+    }
+    const phones = [...new Set(update.phones.map(normalizePhone).filter(Boolean))];
+    if (phones.length === 0) continue;
+    const byPhone = await prisma.whatsappContact.updateMany({
+      where: { phone: { in: phones } },
+      data: { commercialCondition: update.commercialCondition, kommoContactId: update.kommoContactId },
+    });
+    changed += byPhone.count;
+  }
+  return changed;
 }
 
 export async function recordWhatsappInteraction(input: { contactId: string; leadId?: string | null; phone: string; message?: string }) {

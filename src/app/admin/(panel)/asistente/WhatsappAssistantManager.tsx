@@ -27,6 +27,7 @@ import {
   Search,
   Tags,
   Trash2,
+  Wallet,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -34,6 +35,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { formatPhone } from "@/lib/phone";
+import { isCuentaCorriente, SIN_DEFINIR } from "@/lib/commercial-condition";
 import type { NormalizedWhatsappConversation } from "@/lib/ai";
 import type { WhatsappContact, WhatsappKnowledge } from "@/lib/types";
 import {
@@ -42,6 +44,7 @@ import {
   saveContactAction,
   saveKnowledgeAction,
   setAssistantEnabledAction,
+  setContactCuentaCorrienteAction,
   toggleContactAssistantAction,
   toggleKnowledgeAction,
   type AssistantActionState,
@@ -112,7 +115,7 @@ export function WhatsappAssistantManager({
     const query = searchable(contactQuery.trim());
     if (!query) return contacts;
     return contacts.filter((contact) =>
-      searchable([contact.name, contact.phone, contact.leadId, contact.notes].filter(Boolean).join(" ")).includes(query)
+      searchable([contact.name, contact.phone, contact.leadId, contact.notes, contact.commercialCondition].filter(Boolean).join(" ")).includes(query)
     );
   }, [contacts, contactQuery]);
 
@@ -138,6 +141,16 @@ export function WhatsappAssistantManager({
 
   function changeContactPaused(contact: WhatsappContact) {
     runAction(() => toggleContactAssistantAction(contact.id, !contact.assistantPaused));
+  }
+
+  function changeCuentaCorriente(contact: WhatsappContact) {
+    const enable = !isCuentaCorriente(contact.commercialCondition);
+    const name = contact.name || formatPhone(contact.phone);
+    const message = enable
+      ? `¿Activar cuenta corriente para ${name}? Se actualiza también en Kommo y el asistente le responderá con la lista mayorista.`
+      : `¿Quitar la cuenta corriente de ${name}? En Kommo quedará como "${SIN_DEFINIR}" y el asistente volverá a la lista minorista.`;
+    if (!window.confirm(message)) return;
+    runAction(() => setContactCuentaCorrienteAction(contact.id, enable));
   }
 
   return (
@@ -210,6 +223,7 @@ export function WhatsappAssistantManager({
           onCreate={() => setEditingContact(undefined)}
           onEdit={setEditingContact}
           onTogglePaused={changeContactPaused}
+          onToggleCuentaCorriente={changeCuentaCorriente}
         />
       )}
 
@@ -626,6 +640,7 @@ function ControlTab({
   onCreate,
   onEdit,
   onTogglePaused,
+  onToggleCuentaCorriente,
 }: {
   enabled: boolean;
   pending: boolean;
@@ -637,7 +652,9 @@ function ControlTab({
   onCreate: () => void;
   onEdit: (contact: WhatsappContact) => void;
   onTogglePaused: (contact: WhatsappContact) => void;
+  onToggleCuentaCorriente: (contact: WhatsappContact) => void;
 }) {
+  const cuentaCorrienteCount = contacts.filter((contact) => isCuentaCorriente(contact.commercialCondition)).length;
   return (
     <section className="space-y-4" aria-labelledby="control-title">
       <div className={cn("rounded-2xl border p-5 shadow-soft", enabled ? "border-emerald-200 bg-white" : "border-red-200 bg-red-50")}>
@@ -671,10 +688,13 @@ function ControlTab({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-semibold text-brand-ink">Contactos de WhatsApp</h3>
-            <p className="text-xs text-brand-ink/50">{contacts.length === total ? `${total} registrados` : `${contacts.length} de ${total} registrados`}</p>
+            <p className="text-xs text-brand-ink/50">
+              {contacts.length === total ? `${total} registrados` : `${contacts.length} de ${total} registrados`}
+              {cuentaCorrienteCount > 0 && ` · ${cuentaCorrienteCount} en cuenta corriente`}
+            </p>
           </div>
           <div className="flex min-w-0 flex-1 gap-2 sm:max-w-2xl sm:justify-end">
-            <SearchInput value={query} onChange={onQuery} placeholder="Buscar nombre, teléfono o nota" />
+            <SearchInput value={query} onChange={onQuery} placeholder="Buscar nombre, teléfono, nota o condición" />
             <button type="button" onClick={onCreate} className="btn-primary shrink-0"><Plus size={16} /> Añadir</button>
           </div>
         </div>
@@ -682,7 +702,9 @@ function ControlTab({
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-soft">
         <div className="divide-y divide-black/5">
-          {contacts.map((contact) => (
+          {contacts.map((contact) => {
+            const cuentaCorriente = isCuentaCorriente(contact.commercialCondition);
+            return (
             <div key={contact.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-cream text-brand-red"><Phone size={17} /></span>
               <div className="min-w-0 flex-1">
@@ -691,18 +713,36 @@ function ControlTab({
                   <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", contact.assistantPaused ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-700")}>
                     {contact.assistantPaused ? "En pausa" : "Activo"}
                   </span>
+                  {cuentaCorriente ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-800"><Wallet size={10} /> Cuenta corriente</span>
+                  ) : contact.commercialCondition && contact.commercialCondition !== SIN_DEFINIR ? (
+                    <span className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold text-brand-ink/60">{contact.commercialCondition}</span>
+                  ) : null}
                 </div>
                   <p className="text-sm text-brand-ink/60">{formatPhone(contact.phone)}</p>
                   <p className="text-xs text-brand-ink/45">Lead: {contact.leadId || "—"}</p>
                 <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-brand-ink/40"><Clock3 size={11} /> {formatDate(contact.lastSeenAt)}</p>
                 {contact.notes && <p className="mt-1 truncate text-xs text-brand-ink/50">Nota interna: {contact.notes}</p>}
               </div>
-              <div className="flex shrink-0 gap-2">
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => onToggleCuentaCorriente(contact)}
+                  disabled={pending}
+                  title="Se sincroniza con el campo Condición comercial de Kommo"
+                  className={cn(
+                    "inline-flex items-center justify-center gap-1 rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-50",
+                    cuentaCorriente ? "border-black/10 text-brand-ink/70 hover:bg-black/5" : "border-indigo-200 text-indigo-800 hover:bg-indigo-50"
+                  )}
+                >
+                  <Wallet size={13} /> {cuentaCorriente ? "Quitar cuenta corriente" : "Activar cuenta corriente"}
+                </button>
                 <button type="button" onClick={() => onTogglePaused(contact)} disabled={pending} className="inline-flex items-center justify-center gap-1 rounded-lg border border-black/10 px-3 py-2 text-xs font-semibold text-brand-ink/70 hover:bg-black/5 disabled:opacity-50"><PauseCircle size={13} /> {contact.assistantPaused ? "Activar" : "Desactivar"}</button>
                 <button type="button" onClick={() => onEdit(contact)} className="inline-flex items-center justify-center gap-1 rounded-lg border border-black/10 px-3 py-2 text-xs font-semibold text-brand-ink/70 hover:bg-black/5"><Edit3 size={13} /> Editar</button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         {contacts.length === 0 && (
           <div className="p-4"><EmptyState icon={Phone} title={total === 0 ? "Todavía no hay contactos" : "No encontramos coincidencias"} description={total === 0 ? "Se agregarán automáticamente cuando n8n consulte el contexto o podés cargarlos ahora." : "Probá con otro nombre, teléfono o nota."} compact /></div>

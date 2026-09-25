@@ -6,11 +6,15 @@ import { assertPerm } from "@/lib/auth/permissions";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import {
   deleteWhatsappKnowledge,
+  getWhatsappContact,
   saveWhatsappContact,
   saveWhatsappKnowledge,
   setWhatsappAssistantEnabled,
+  setWhatsappContactCommercialCondition,
   toggleWhatsappKnowledge,
 } from "@/lib/whatsapp-assistant";
+import { CUENTA_CORRIENTE, SIN_DEFINIR } from "@/lib/commercial-condition";
+import { findKommoContactIdForLead, KommoError, setKommoCommercialCondition } from "@/lib/kommo";
 import { NoDatabaseError } from "@/lib/repo";
 import {
   normalizeWhatsappConversation,
@@ -195,6 +199,37 @@ export async function toggleContactAssistantAction(
     refreshAssistant();
     return { ok: true };
   } catch (error) {
+    return failure(error);
+  }
+}
+
+/**
+ * Activa o quita la cuenta corriente. Escribe primero en Kommo (fuente de
+ * verdad) y recién después guarda en la web, así ambos quedan iguales.
+ */
+export async function setContactCuentaCorrienteAction(
+  id: string,
+  enabled: boolean
+): Promise<AssistantActionState> {
+  const denied = await requireAssistantPermission();
+  if (denied) return { error: denied };
+  try {
+    const contact = await getWhatsappContact(id);
+    if (!contact) return { error: "Contacto no encontrado." };
+    const kommoContactId =
+      contact.kommoContactId ?? (contact.leadId ? await findKommoContactIdForLead(contact.leadId) : undefined);
+    if (!kommoContactId) {
+      return {
+        error: "Este contacto todavía no está vinculado a Kommo. Se vincula solo cuando escribe por WhatsApp.",
+      };
+    }
+    const condition = enabled ? CUENTA_CORRIENTE : SIN_DEFINIR;
+    await setKommoCommercialCondition(kommoContactId, condition);
+    await setWhatsappContactCommercialCondition(id, condition, kommoContactId);
+    refreshAssistant();
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof KommoError) return { error: error.message };
     return failure(error);
   }
 }

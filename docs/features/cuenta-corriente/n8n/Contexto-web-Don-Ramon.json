@@ -1,0 +1,64 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://avicoladonramon.consultoriadigital.io/api/v1/assistant/context",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $json.phone }}"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.text }}"
+            },
+            {
+              "name": "name",
+              "value": "={{ $json.name }}"
+            },
+            {
+              "name": "leadId",
+              "value": "={{ $json.leadId }}"
+            },
+            {
+              "name": "contactId",
+              "value": "={{ $json.contactId }}"
+            },
+            {
+              "name": "commercialCondition",
+              "value": "={{ $json.commercialCondition }}"
+            },
+            {
+              "name": "commercialConditionKnown",
+              "value": "={{ $json.commercialConditionKnown }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 8000
+        }
+      },
+      "id": "f2c0e7b4-8309-4f7f-a01f-b77ef82c9f28",
+      "name": "Contexto web Don Ramon1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -2352,
+        640
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "9wc6LMu6yslHQHiK",
+          "name": "AvicolaDonRamonWebApi"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {}
+}

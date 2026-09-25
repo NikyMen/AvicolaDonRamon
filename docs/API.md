@@ -121,8 +121,23 @@ POST /assistant/context
 Authorization: Bearer TU_API_KEY
 Content-Type: application/json
 
-{ "phone": "+54 9 343 400 0000", "name": "María" }
+{
+  "phone": "+54 9 343 400 0000",
+  "name": "María",
+  "leadId": "123456",
+  "contactId": "654321",
+  "commercialCondition": "Cuenta corriente",
+  "commercialConditionKnown": true
+}
 ```
+
+`contactId`, `commercialCondition` y `commercialConditionKnown` son opcionales y vienen del
+contacto de Kommo. Si `commercialCondition` trae un valor se guarda; si llega vacío con
+`commercialConditionKnown: true` se guarda "Sin definir"; si Kommo no respondió
+(`commercialConditionKnown` ausente o `false`) se conserva la condición guardada.
+
+Cuando la condición es **Cuenta corriente**, `business.products` trae la **lista mayorista**
+(con `inStock` y `priceList: "mayorista"`), `offers` queda vacío y `superOffer` en `null`.
 
 El endpoint normaliza el teléfono, crea o actualiza el contacto y devuelve el estado del
 asistente junto con conocimiento activo, catálogo, ofertas, sucursales y reglas de entrega.
@@ -140,10 +155,18 @@ No devuelve notas internas ni guarda conversaciones.
       "id": "...",
       "phone": "3794000000",
       "name": "María",
+      "commercialCondition": "Cuenta corriente",
+      "cuentaCorriente": true,
       "lastSeenAt": "2026-08-24T20:00:00.000Z"
+    },
+    "pricing": {
+      "priceList": "mayorista",
+      "commercialCondition": "Cuenta corriente",
+      "instruction": "Cliente en cuenta corriente: usá únicamente los precios de la lista mayorista..."
     },
     "knowledge": [],
     "business": {
+      "priceList": "mayorista",
       "products": [],
       "offers": [],
       "superOffer": null,
@@ -157,6 +180,37 @@ No devuelve notas internas ni guarda conversaciones.
 
 En n8n continuá al modelo únicamente cuando `{{$json.data.assistant.shouldReply}}` sea `true`.
 Si es `false`, finalizá el flujo sin enviar un mensaje automático.
+
+### Lista mayorista
+
+```http
+GET  /wholesale/products?available=true
+POST /wholesale/products
+Authorization: Bearer TU_API_KEY
+Content-Type: application/json
+
+{
+  "items": [
+    { "code": "R15", "name": "Caja pata muslo Resistire", "description": "x15 kg", "category": "Cajones", "price": 33000, "stock": null }
+  ]
+}
+```
+
+`POST` da de alta o actualiza en bloque (hasta 5000 filas, todo o nada). Empareja por `code`
+y, si la fila no trae código, por nombre. `stock: null` significa "sin control de stock"; si
+`stock` no se envía, se conserva el actual. Responde `{ "data": { "created": 1, "updated": 0 } }`.
+La lista mayorista nunca aparece en endpoints públicos.
+
+### Webhook de Kommo (condición comercial)
+
+```http
+POST /kommo/webhook?secret=KOMMO_WEBHOOK_SECRET
+Content-Type: application/x-www-form-urlencoded
+```
+
+Lo llama Kommo (evento "Contacto modificado"), no n8n. Copia el campo "Condición comercial" del
+contacto al contacto de WhatsApp vinculado (por ID de contacto de Kommo o, si todavía no está
+vinculado, por teléfono). Ver [cuenta-corriente-kommo.md](cuenta-corriente-kommo.md).
 
 Para el workflow comercial de solo lectura también está disponible:
 

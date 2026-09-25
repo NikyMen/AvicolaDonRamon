@@ -8,6 +8,7 @@ import {
   Truck,
   Route,
   Package,
+  Warehouse,
   Users,
   UserCog,
   Tag,
@@ -34,6 +35,7 @@ import { AdminSearchProvider, useAdminSearch } from "@/lib/admin-search";
 /** Páginas que muestran el buscador del header y lo que busca en ellas. */
 const SEARCHABLE_ROUTES: { prefix: string; placeholder: string }[] = [
   { prefix: "/admin/productos", placeholder: "Buscar productos…" },
+  { prefix: "/admin/mayorista", placeholder: "Buscar en la lista mayorista…" },
 ];
 
 function AdminHeaderSearch() {
@@ -65,6 +67,7 @@ const nav = [
   { href: "/admin/envios", label: "Envios", icon: Route, perm: "envios", hideKey: "envios" },
   { href: "/admin/sucursales", label: "Sucursales", icon: Store, perm: "sucursales", hideKey: "sucursales" },
   { href: "/admin/productos", label: "Stock", icon: Package, perm: "productos", hideKey: "productos" },
+  { href: "/admin/mayorista", label: "Stock mayorista", icon: Warehouse, perm: "productos", hideKey: "mayorista" },
   { href: "/admin/clientes", label: "Clientes", icon: Users, perm: "clientes", hideKey: "clientes" },
   { href: "/admin/equipo", label: "Equipo", icon: UserCog, perm: "equipo", hideKey: "equipo" },
   { href: "/admin/ofertas", label: "Ofertas", icon: Tag, perm: "ofertas", hideKey: "ofertas" },

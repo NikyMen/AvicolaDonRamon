@@ -8,6 +8,7 @@ const modules = [
   ["dashboard", "Dashboard"], ["analitica", "Analítica"],
   ["entregas", "Entregas"], ["envios", "Envios"], ["ofertas", "Ofertas"],
   ["sucursales", "Sucursales"], ["clientes", "Clientes"], ["cupones", "Cupones y promos"],
+  ["mayorista", "Stock mayorista"],
 ];
 
 export function ConfigSettings({
