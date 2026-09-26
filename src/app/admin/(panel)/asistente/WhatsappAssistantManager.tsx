@@ -95,6 +95,7 @@ export function WhatsappAssistantManager({
     WhatsappKnowledge | undefined | null
   >(null);
   const [editingContact, setEditingContact] = useState<WhatsappContact | undefined | null>(null);
+  const [newContactCuentaCorriente, setNewContactCuentaCorriente] = useState(false);
   const [conversationOpen, setConversationOpen] = useState(false);
   const [knowledgeQuery, setKnowledgeQuery] = useState("");
   const [contactQuery, setContactQuery] = useState("");
@@ -147,7 +148,7 @@ export function WhatsappAssistantManager({
     const enable = !isCuentaCorriente(contact.commercialCondition);
     const name = contact.name || formatPhone(contact.phone);
     const message = enable
-      ? `¿Activar cuenta corriente para ${name}? Se actualiza también en Kommo y el asistente le responderá con la lista mayorista.`
+      ? `¿Activar cuenta corriente para ${name}? Se actualiza también en Kommo (si el número no existe allí, se crea el contacto) y el asistente le responderá con la lista mayorista.`
       : `¿Quitar la cuenta corriente de ${name}? En Kommo quedará como "${SIN_DEFINIR}" y el asistente volverá a la lista minorista.`;
     if (!window.confirm(message)) return;
     runAction(() => setContactCuentaCorrienteAction(contact.id, enable));
@@ -220,7 +221,14 @@ export function WhatsappAssistantManager({
           query={contactQuery}
           onQuery={setContactQuery}
           onEnabledChange={changeEnabled}
-          onCreate={() => setEditingContact(undefined)}
+          onCreate={() => {
+            setNewContactCuentaCorriente(false);
+            setEditingContact(undefined);
+          }}
+          onCreateCuentaCorriente={() => {
+            setNewContactCuentaCorriente(true);
+            setEditingContact(undefined);
+          }}
           onEdit={setEditingContact}
           onTogglePaused={changeContactPaused}
           onToggleCuentaCorriente={changeCuentaCorriente}
@@ -234,7 +242,11 @@ export function WhatsappAssistantManager({
         />
       )}
       {editingContact !== null && (
-        <ContactModal contact={editingContact} onClose={() => setEditingContact(null)} />
+        <ContactModal
+          contact={editingContact}
+          defaultCuentaCorriente={newContactCuentaCorriente}
+          onClose={() => setEditingContact(null)}
+        />
       )}
       {conversationOpen && <ConversationModal onClose={() => setConversationOpen(false)} />}
     </div>
@@ -638,6 +650,7 @@ function ControlTab({
   onQuery,
   onEnabledChange,
   onCreate,
+  onCreateCuentaCorriente,
   onEdit,
   onTogglePaused,
   onToggleCuentaCorriente,
@@ -650,6 +663,7 @@ function ControlTab({
   onQuery: (value: string) => void;
   onEnabledChange: (enabled: boolean) => void;
   onCreate: () => void;
+  onCreateCuentaCorriente: () => void;
   onEdit: (contact: WhatsappContact) => void;
   onTogglePaused: (contact: WhatsappContact) => void;
   onToggleCuentaCorriente: (contact: WhatsappContact) => void;
@@ -693,8 +707,15 @@ function ControlTab({
               {cuentaCorrienteCount > 0 && ` · ${cuentaCorrienteCount} en cuenta corriente`}
             </p>
           </div>
-          <div className="flex min-w-0 flex-1 gap-2 sm:max-w-2xl sm:justify-end">
+          <div className="flex min-w-0 flex-1 flex-wrap gap-2 sm:max-w-3xl sm:flex-nowrap sm:justify-end">
             <SearchInput value={query} onChange={onQuery} placeholder="Buscar nombre, teléfono, nota o condición" />
+            <button
+              type="button"
+              onClick={onCreateCuentaCorriente}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
+            >
+              <Wallet size={16} /> Nuevo en cuenta corriente
+            </button>
             <button type="button" onClick={onCreate} className="btn-primary shrink-0"><Plus size={16} /> Añadir</button>
           </div>
         </div>
@@ -720,7 +741,7 @@ function ControlTab({
                   ) : null}
                 </div>
                   <p className="text-sm text-brand-ink/60">{formatPhone(contact.phone)}</p>
-                  <p className="text-xs text-brand-ink/45">Lead: {contact.leadId || "—"}</p>
+                  <p className="text-xs text-brand-ink/45">Lead: {contact.leadId || "—"} · Kommo: {contact.kommoContactId || "sin vincular"}</p>
                 <p className="mt-1 inline-flex items-center gap-1 text-[10px] text-brand-ink/40"><Clock3 size={11} /> {formatDate(contact.lastSeenAt)}</p>
                 {contact.notes && <p className="mt-1 truncate text-xs text-brand-ink/50">Nota interna: {contact.notes}</p>}
               </div>
@@ -1009,7 +1030,15 @@ function ConversationModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function ContactModal({ contact, onClose }: { contact?: WhatsappContact; onClose: () => void }) {
+function ContactModal({
+  contact,
+  defaultCuentaCorriente = false,
+  onClose,
+}: {
+  contact?: WhatsappContact;
+  defaultCuentaCorriente?: boolean;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<AssistantActionState, FormData>(saveContactAction, {});
   useEffect(() => {
@@ -1020,13 +1049,20 @@ function ContactModal({ contact, onClose }: { contact?: WhatsappContact; onClose
   }, [state.ok, onClose, router]);
 
   return (
-    <Modal title={contact ? "Editar contacto" : "Añadir contacto"} onClose={onClose}>
+    <Modal title={contact ? "Editar contacto" : defaultCuentaCorriente ? "Nuevo cliente en cuenta corriente" : "Añadir contacto"} onClose={onClose}>
       <form action={formAction} className="space-y-4 text-sm">
         {contact && <input type="hidden" name="id" value={contact.id} />}
         <Field label="Nombre"><input name="name" maxLength={100} defaultValue={contact?.name} placeholder="Opcional" className="input-admin" /></Field>
           <Field label="Lead ID"><input name="leadId" defaultValue={contact?.leadId} placeholder="Se completa desde n8n" className="input-admin" /></Field>
           <Field label="Teléfono"><input name="phone" required defaultValue={contact?.phone} placeholder="Ej. +54 9 379 400 0000" className="input-admin" /></Field>
         <Field label="Notas internas"><textarea name="notes" maxLength={1000} rows={4} defaultValue={contact?.notes} placeholder="No se envían a n8n ni al modelo." className="input-admin resize-y" /></Field>
+        <label className="flex items-start gap-2 rounded-xl bg-indigo-50 px-3 py-2.5 text-indigo-900">
+          <input name="cuentaCorriente" type="checkbox" defaultChecked={contact ? isCuentaCorriente(contact.commercialCondition) : defaultCuentaCorriente} className="mt-0.5 h-4 w-4 accent-indigo-700" />
+          <span>
+            <span className="flex items-center gap-1.5 font-semibold"><Wallet size={16} /> Cuenta corriente</span>
+            <span className="block text-xs text-indigo-900/70">Se sincroniza con Kommo por teléfono. Si el número no existe en Kommo, se crea el contacto (sin lead).</span>
+          </span>
+        </label>
         <label className="flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2.5 font-semibold text-amber-900"><input name="assistantPaused" type="checkbox" defaultChecked={contact?.assistantPaused} className="h-4 w-4 accent-amber-700" /><PauseCircle size={16} /> Pausar respuestas para este número</label>
         {state.error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-red-700">{state.error}</p>}
         <ModalActions pending={pending} onClose={onClose} />

@@ -11,7 +11,31 @@ const {
   isCuentaCorriente,
   normalizeCommercialCondition,
   parseKommoContactWebhook,
+  reconcileCommercialCondition,
 } = await load('../src/lib/commercial-condition.ts');
+
+// Mensajes de n8n: Kommo crea un contacto nuevo (vacío) por chat, lead o número.
+const cc = { commercialCondition: 'Cuenta corriente', kommoContactId: '100' };
+const reconcile = (stored, reportedContactId, reportedCondition, reportedKnown = true) =>
+  reconcileCommercialCondition({ stored, reportedContactId, reportedCondition, reportedKnown });
+// Contacto nuevo de Kommo sin condición: la web conserva CC y se la copia.
+assert.deepEqual(reconcile(cc, '200', ''), { pushToKommo: 'Cuenta corriente' });
+// Otro contacto con un valor viejo distinto: gana la última elección de la web.
+assert.deepEqual(reconcile(cc, '200', 'Transferencia'), { pushToKommo: 'Cuenta corriente' });
+// Ya copiado: nada que hacer.
+assert.deepEqual(reconcile(cc, '200', 'Cuenta corriente'), {});
+// El contacto vinculado cambió en Kommo (y el webhook no llegó): manda Kommo.
+assert.deepEqual(reconcile(cc, '100', 'Transferencia'), { save: 'Transferencia' });
+assert.deepEqual(reconcile(cc, '100', ''), { save: 'Sin definir' });
+// Kommo no respondió: no se toca nada.
+assert.deepEqual(reconcile(cc, '100', '', false), {});
+// Sin condición guardada: se toma la de Kommo (o nada si está vacía).
+assert.deepEqual(reconcile(null, '300', 'Cuenta corriente'), { save: 'Cuenta corriente' });
+assert.deepEqual(reconcile({ commercialCondition: null, kommoContactId: null }, '300', ''), { save: undefined });
+// "Sin definir" guardado y contacto nuevo vacío: equivalentes, no se escribe en Kommo.
+assert.deepEqual(reconcile({ commercialCondition: 'Sin definir', kommoContactId: '100' }, '200', ''), {});
+// Nodos viejos de n8n (sin contactId ni known): se respeta lo informado.
+assert.deepEqual(reconcile(cc, undefined, 'Transferencia', false), { save: 'Transferencia' });
 const { parseArsAmount, parseWholesaleSheet } = await load('../src/lib/wholesale-import.ts');
 
 // Condición comercial: tolera mayúsculas, acentos y espacios.

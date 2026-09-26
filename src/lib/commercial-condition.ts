@@ -43,6 +43,38 @@ export function isCommercialConditionFieldName(name: string | null | undefined):
   return !!name && searchable(name) === "condicion comercial";
 }
 
+/**
+ * Decide qué hacer con la condición que n8n leyó de Kommo en un mensaje.
+ *
+ * Kommo suele crear un contacto nuevo (vacío) por cada chat o lead, así que el
+ * mismo teléfono puede tener varios contactos. La web guarda la última
+ * condición elegida para ese teléfono:
+ * - Si el mensaje viene del contacto vinculado, manda Kommo.
+ * - Si viene de otro contacto de Kommo, la web conserva su condición y se la
+ *   copia a ese contacto (así un duplicado no saca a nadie de cuenta corriente).
+ */
+export function reconcileCommercialCondition(input: {
+  stored?: { commercialCondition?: string | null; kommoContactId?: string | null } | null;
+  reportedContactId?: string;
+  reportedCondition?: string;
+  /** true si n8n pudo leer el contacto de Kommo (campo vacío = sin valor). */
+  reportedKnown: boolean;
+}): { save?: string; pushToKommo?: string } {
+  const reported = normalizeCommercialCondition(input.reportedCondition);
+  // Kommo no respondió: no hay nada confiable para comparar.
+  if (!reported && !input.reportedKnown) return {};
+
+  const storedCondition = input.stored?.commercialCondition || undefined;
+  if (!storedCondition) return { save: reported };
+
+  const sameContact =
+    !input.reportedContactId || input.reportedContactId === input.stored?.kommoContactId;
+  if (sameContact) return { save: reported ?? SIN_DEFINIR };
+
+  if ((reported ?? SIN_DEFINIR) === storedCondition) return {};
+  return { pushToKommo: storedCondition };
+}
+
 export interface KommoContactConditionUpdate {
   kommoContactId: string;
   phones: string[];

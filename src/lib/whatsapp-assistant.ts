@@ -368,6 +368,19 @@ export async function getWhatsappContact(id: string): Promise<WhatsappContact | 
   return row ? mapContact(row) : null;
 }
 
+export async function getWhatsappContactByPhone(phoneRaw: string): Promise<WhatsappContact | null> {
+  if (!hasDatabase) return null;
+  const phone = normalizePhone(phoneRaw);
+  if (!phone) return null;
+  const row = await prisma.whatsappContact.findUnique({ where: { phone } });
+  return row ? mapContact(row) : null;
+}
+
+export async function linkWhatsappContactToKommo(id: string, kommoContactId: string): Promise<void> {
+  ensureDatabase();
+  await prisma.whatsappContact.update({ where: { id }, data: { kommoContactId } });
+}
+
 /**
  * Registra la interacción que n8n consulta sin guardar mensajes. Kommo es la
  * fuente de verdad de la condición comercial: si n8n la informa, se copia.
@@ -436,8 +449,14 @@ export async function applyKommoCommercialConditions(updates: KommoContactCondit
     }
     const phones = [...new Set(update.phones.map(normalizePhone).filter(Boolean))];
     if (phones.length === 0) continue;
+    // Otro contacto de Kommo con el mismo teléfono: solo cuenta si cambia la
+    // condición (así el eco de un cambio hecho en todos los duplicados no
+    // mueve el vínculo de un contacto a otro).
     const byPhone = await prisma.whatsappContact.updateMany({
-      where: { phone: { in: phones } },
+      where: {
+        phone: { in: phones },
+        OR: [{ commercialCondition: null }, { commercialCondition: { not: update.commercialCondition } }],
+      },
       data: { commercialCondition: update.commercialCondition, kommoContactId: update.kommoContactId },
     });
     changed += byPhone.count;

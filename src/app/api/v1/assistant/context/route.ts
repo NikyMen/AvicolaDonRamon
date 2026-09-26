@@ -1,18 +1,17 @@
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireApiKey } from "@/lib/api/auth";
 import { handleError, ok } from "@/lib/api/respond";
-import {
-  isCuentaCorriente,
-  normalizeCommercialCondition,
-  SIN_DEFINIR,
-} from "@/lib/commercial-condition";
+import { isCuentaCorriente, reconcileCommercialCondition } from "@/lib/commercial-condition";
+import { setKommoCommercialCondition } from "@/lib/kommo";
 import { FLAT_DELIVERY_FEE, MIN_ENVIO_TOTAL } from "@/lib/geo";
 import { isValidPhone } from "@/lib/phone";
 import { getSuperOferta, listOffers, listProducts } from "@/lib/repo";
 import { sucursales } from "@/lib/sucursales";
 import {
   getWhatsappAssistantEnabled,
+  getWhatsappContactByPhone,
+  linkWhatsappContactToKommo,
   listWhatsappKnowledge,
   selectRelevantWhatsappKnowledge,
   touchWhatsappContact,
@@ -38,8 +37,8 @@ const inputSchema = z.object({
       return /^\d+$/.test(id) ? id : undefined;
     }),
   commercialCondition: z.string().trim().max(100).optional(),
-  // true cuando n8n pudo leer el contacto: un campo vacío equivale a "Sin
-  // definir". Si la lectura falló no se toca la condición guardada.
+  // true cuando n8n pudo leer el contacto de Kommo. Si la lectura falló no se
+  // toca la condición guardada (ver reconcileCommercialCondition).
   commercialConditionKnown: z
     .union([z.boolean(), z.string()])
     .optional()
@@ -60,17 +59,35 @@ export async function POST(req: NextRequest) {
 
   try {
     const input = inputSchema.parse(await req.json());
-    const reportedCondition =
-      normalizeCommercialCondition(input.commercialCondition)
-      ?? (input.commercialConditionKnown ? SIN_DEFINIR : undefined);
+    const decision = reconcileCommercialCondition({
+      stored: await getWhatsappContactByPhone(input.phone),
+      reportedContactId: input.contactId,
+      reportedCondition: input.commercialCondition,
+      reportedKnown: input.commercialConditionKnown,
+    });
     const [contact, enabled, knowledge] = await Promise.all([
       touchWhatsappContact(input.phone, input.name, input.leadId, {
-        kommoContactId: input.contactId,
-        commercialCondition: reportedCondition,
+        // Si hay que copiarle la condición a otro contacto de Kommo, el
+        // vínculo recién cambia cuando Kommo confirma la copia.
+        kommoContactId: decision.pushToKommo ? undefined : input.contactId,
+        commercialCondition: decision.save,
       }),
       getWhatsappAssistantEnabled(),
       listWhatsappKnowledge({ activeOnly: true }),
     ]);
+
+    const { pushToKommo } = decision;
+    const newKommoContactId = input.contactId;
+    if (pushToKommo && newKommoContactId) {
+      after(async () => {
+        try {
+          await setKommoCommercialCondition(newKommoContactId, pushToKommo);
+          await linkWhatsappContactToKommo(contact.id, newKommoContactId);
+        } catch (error) {
+          console.error("No se pudo copiar la condición comercial a Kommo", error);
+        }
+      });
+    }
 
     // Cuenta corriente: la lista mayorista reemplaza al catálogo minorista y
     // sus promociones, para que el asistente nunca mezcle precios.

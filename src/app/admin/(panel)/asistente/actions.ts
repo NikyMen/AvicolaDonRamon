@@ -13,9 +13,10 @@ import {
   setWhatsappContactCommercialCondition,
   toggleWhatsappKnowledge,
 } from "@/lib/whatsapp-assistant";
-import { CUENTA_CORRIENTE, SIN_DEFINIR } from "@/lib/commercial-condition";
-import { findKommoContactIdForLead, KommoError, setKommoCommercialCondition } from "@/lib/kommo";
+import { CUENTA_CORRIENTE, isCuentaCorriente, SIN_DEFINIR } from "@/lib/commercial-condition";
+import { applyKommoCommercialCondition, KommoError } from "@/lib/kommo";
 import { NoDatabaseError } from "@/lib/repo";
+import type { WhatsappContact } from "@/lib/types";
 import {
   normalizeWhatsappConversation,
   type NormalizedWhatsappConversation,
@@ -159,8 +160,9 @@ export async function saveContactAction(
   if (name.length > 100) return { error: "El nombre no puede superar 100 caracteres." };
   if (notes.length > 1000) return { error: "Las notas no pueden superar 1000 caracteres." };
 
+  let saved: WhatsappContact;
   try {
-    await saveWhatsappContact({
+    saved = await saveWhatsappContact({
       id: String(formData.get("id") ?? "").trim() || undefined,
       leadId: String(formData.get("leadId") ?? "").trim() || undefined,
       phone: normalizePhone(phoneRaw),
@@ -169,10 +171,21 @@ export async function saveContactAction(
       assistantPaused: formData.get("assistantPaused") === "on",
     });
     refreshAssistant();
-    return { ok: true };
   } catch (error) {
     return failure(error);
   }
+
+  const wantsCuentaCorriente = formData.get("cuentaCorriente") === "on";
+  if (wantsCuentaCorriente !== isCuentaCorriente(saved.commercialCondition)) {
+    try {
+      await applyCuentaCorriente(saved, wantsCuentaCorriente);
+      refreshAssistant();
+    } catch (error) {
+      const reason = error instanceof KommoError ? error.message : "Error inesperado.";
+      return { error: `El contacto se guardó, pero no se pudo actualizar la cuenta corriente en Kommo. ${reason}` };
+    }
+  }
+  return { ok: true };
 }
 
 export async function setAssistantEnabledAction(enabled: boolean): Promise<AssistantActionState> {
@@ -204,9 +217,16 @@ export async function toggleContactAssistantAction(
 }
 
 /**
- * Activa o quita la cuenta corriente. Escribe primero en Kommo (fuente de
- * verdad) y recién después guarda en la web, así ambos quedan iguales.
+ * Escribe primero en Kommo (fuente de verdad), en todos los contactos de ese
+ * teléfono, y recién después guarda en la web. Al activar, si el teléfono no
+ * existe en Kommo crea el contacto (sin lead, así no depende del embudo).
  */
+async function applyCuentaCorriente(contact: WhatsappContact, enabled: boolean): Promise<void> {
+  const condition = enabled ? CUENTA_CORRIENTE : SIN_DEFINIR;
+  const kommoContactId = await applyKommoCommercialCondition(contact, condition, { createIfMissing: enabled });
+  await setWhatsappContactCommercialCondition(contact.id, condition, kommoContactId);
+}
+
 export async function setContactCuentaCorrienteAction(
   id: string,
   enabled: boolean
@@ -216,16 +236,7 @@ export async function setContactCuentaCorrienteAction(
   try {
     const contact = await getWhatsappContact(id);
     if (!contact) return { error: "Contacto no encontrado." };
-    const kommoContactId =
-      contact.kommoContactId ?? (contact.leadId ? await findKommoContactIdForLead(contact.leadId) : undefined);
-    if (!kommoContactId) {
-      return {
-        error: "Este contacto todavía no está vinculado a Kommo. Se vincula solo cuando escribe por WhatsApp.",
-      };
-    }
-    const condition = enabled ? CUENTA_CORRIENTE : SIN_DEFINIR;
-    await setKommoCommercialCondition(kommoContactId, condition);
-    await setWhatsappContactCommercialCondition(id, condition, kommoContactId);
+    await applyCuentaCorriente(contact, enabled);
     refreshAssistant();
     return { ok: true };
   } catch (error) {

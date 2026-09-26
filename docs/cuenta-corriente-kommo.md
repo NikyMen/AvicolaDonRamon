@@ -21,10 +21,28 @@ Kommo es la fuente de verdad del campo **Condición comercial** del contacto.
 | Kommo | Al instante por el webhook de Kommo. Además, en cada mensaje n8n lee el contacto y se lo manda a la web. |
 
 - Activar pone **Cuenta corriente**; quitar pone **Sin definir** (en Kommo y en la web).
-- El botón necesita que el contacto esté vinculado a Kommo (tener Lead ID). Los contactos se
-  vinculan solos cuando escriben por WhatsApp.
+- La web busca en Kommo **todos los contactos con ese teléfono** (Kommo suele tener varios por
+  número) y les pone la misma condición. Si al activar no existe ninguno, crea el contacto.
 - Si n8n no pudo leer el contacto de Kommo, la web conserva la condición que ya tenía: un error
   de Kommo no saca a nadie de cuenta corriente.
+
+## Cargar clientes que todavía no escribieron
+
+En **Asistente WhatsApp → Añadir**, cargá nombre y teléfono y marcá **Cuenta corriente**. La web
+busca ese teléfono en Kommo y, si no existe, crea **solo el contacto** (sin lead ni embudo), con
+el número en formato de WhatsApp (`+549…`). Cuando el cliente escriba, ya está en cuenta corriente.
+
+## Cambio de embudo o de número de WhatsApp
+
+- La web no crea leads ni usa IDs de embudo o etapa: cambiar de embudo no la afecta.
+- El cliente se identifica por **su** teléfono, no por el número del negocio.
+- Si con el número nuevo Kommo crea contactos nuevos (vacíos), en el primer mensaje la web ve
+  que viene de otro contacto con el mismo teléfono, conserva la cuenta corriente y se la copia
+  a ese contacto nuevo en Kommo.
+- Lo que sí depende de n8n/Kommo y conviene revisar al cambiar:
+  - `If row exists` filtra por **Lead ID** en la tabla "telefonos permitidos (leads)": los leads
+    nuevos tienen otro ID y el bot no les va a contestar hasta cargarlos (o filtrar por teléfono).
+  - El Salesbot que envía la respuesta tiene que estar activo para el canal de WhatsApp nuevo.
 
 ## Puesta en marcha
 
