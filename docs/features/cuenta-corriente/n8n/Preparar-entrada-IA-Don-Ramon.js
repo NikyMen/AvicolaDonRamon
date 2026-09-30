@@ -115,12 +115,11 @@ if (business.branches?.length) {
   }
 }
 
-lines.push(
-  '',
-  wholesale
-    ? '=== PRODUCTOS DE LA LISTA MAYORISTA ==='
-    : '=== PRODUCTOS DEL CATÁLOGO ==='
-);
+// Solo productos activos: los pausados o sin stock no se le pasan a la IA.
+const isActive = (product) =>
+  product.available !== false &&
+  (product.inStock ?? Number(product.stock) > 0);
+const activeProducts = (business.products ?? []).filter(isActive);
 
 const normalize = (value) =>
   String(value ?? '')
@@ -162,51 +161,63 @@ const isCatalogRequest =
     message
   );
 
-const rankedProducts = [];
-
-for (const product of business.products ?? []) {
-  if (!product.available) continue;
-
-  const searchableText = normalize(
-    `${product.name} ${product.category} ${product.description}`
-  );
-
-  const score = terms.reduce(
-    (total, term) =>
-      total + (searchableText.includes(term) ? 1 : 0),
-    0
-  );
-
-  rankedProducts.push({
-    product,
-    score,
-  });
-}
-
-rankedProducts.sort((a, b) => b.score - a.score);
-
-const maxProducts = isCatalogRequest ? 60 : 30;
-
-const selectedProducts = rankedProducts
-  .filter((item) => isCatalogRequest || item.score > 0)
-  .slice(0, maxProducts);
-
-if (selectedProducts.length === 0) {
+if (wholesale) {
+  // La lista mayorista es corta: va completa y agrupada por categoría para
+  // que el asistente vea todas las marcas y presentaciones.
   lines.push(
-    wholesale
-      ? 'No se encontró una coincidencia en la lista mayorista. Derivá la consulta a una persona.'
-      : 'No se encontró una coincidencia exacta en el catálogo recibido.'
+    '',
+    '=== PRODUCTOS DE LA LISTA MAYORISTA ===',
+    'Precios en pesos, número entero sin separadores. "XKG" o "POR KG" = precio por kilo. "CAJA ... X15KG" = precio de la caja completa. "FRACCIONADA" = caja fraccionada.'
   );
+
+  if (activeProducts.length === 0) {
+    lines.push('La lista mayorista no tiene productos activos. Derivá la consulta a una persona.');
+  }
+
+  const byCategory = new Map();
+  for (const product of activeProducts) {
+    const category = clean(product.category) || 'Otros';
+    if (!byCategory.has(category)) byCategory.set(category, []);
+    byCategory.get(category).push(product);
+  }
+
+  for (const [category, products] of byCategory) {
+    lines.push(`-- ${category.toUpperCase()} --`);
+    for (const product of products) {
+      lines.push(
+        `${clean(product.name)}` +
+          (product.description ? ` (${clean(product.description)})` : '') +
+          ` | Precio: $${product.price ?? '-'}`
+      );
+    }
+  }
 } else {
-  for (const item of selectedProducts) {
-    const product = item.product;
+  lines.push('', '=== PRODUCTOS DEL CATÁLOGO ===');
 
-    // En la lista mayorista el stock puede no controlarse (inStock lo resuelve la web).
-    const stockLabel =
-      (product.inStock ?? Number(product.stock) > 0)
-        ? 'DISPONIBLE'
-        : 'SIN STOCK';
+  const rankedProducts = activeProducts.map((product) => {
+    const searchableText = normalize(
+      `${product.name} ${product.category} ${product.description}`
+    );
+    const score = terms.reduce(
+      (total, term) => total + (searchableText.includes(term) ? 1 : 0),
+      0
+    );
+    return { product, score };
+  });
 
+  rankedProducts.sort((a, b) => b.score - a.score);
+
+  const maxProducts = isCatalogRequest ? 60 : 30;
+
+  const selectedProducts = rankedProducts
+    .filter((item) => isCatalogRequest || item.score > 0)
+    .slice(0, maxProducts);
+
+  if (selectedProducts.length === 0) {
+    lines.push('No se encontró una coincidencia exacta en el catálogo recibido.');
+  }
+
+  for (const { product } of selectedProducts) {
     lines.push(
       `${clean(product.name)} | ` +
         (product.description && product.description !== product.name
@@ -214,7 +225,6 @@ if (selectedProducts.length === 0) {
           : '') +
         `ID: ${clean(product.id)} | ` +
         `Precio: $${product.price ?? '-'} | ` +
-        `Estado: ${stockLabel} | ` +
         `Categoría: ${clean(product.category)}`
     );
   }

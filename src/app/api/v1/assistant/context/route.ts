@@ -49,6 +49,9 @@ const WHOLESALE_INSTRUCTION =
   "Cliente en cuenta corriente: usá únicamente los precios de la lista mayorista de business.products. " +
   "No ofrezcas ofertas ni la lista de precios minorista. Si el producto no figura en la lista mayorista, derivá a una persona.";
 
+/** Tope de seguridad: la lista mayorista real ronda los 50 productos. */
+const WHOLESALE_MAX_PRODUCTS = 150;
+
 /**
  * Punto único para que n8n consulte si debe responder y obtenga contexto seguro.
  * Registra el contacto, pero nunca guarda mensajes ni expone notas internas.
@@ -90,11 +93,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Cuenta corriente: la lista mayorista reemplaza al catálogo minorista y
-    // sus promociones, para que el asistente nunca mezcle precios.
+    // sus promociones, para que el asistente nunca mezcle precios. En ambos
+    // casos solo viajan productos activos (habilitados y con stock): el
+    // catálogo tiene miles de artículos y los que no se venden solo agrandan
+    // el mensaje.
     const cuentaCorriente = isCuentaCorriente(contact.commercialCondition);
     const [products, offers, superOferta] = cuentaCorriente
       ? [
-          (await listWholesaleProducts({ availableOnly: true })).map((product) => ({
+          (await listWholesaleProducts({ availableOnly: true })).filter(isWholesaleInStock).map((product) => ({
             id: product.id,
             code: product.code ?? null,
             name: product.name,
@@ -109,10 +115,18 @@ export async function POST(req: NextRequest) {
           [],
           null,
         ]
-      : await Promise.all([listProducts(), listOffers(), getSuperOferta()]);
+      : await Promise.all([
+          listProducts().then((list) => list.filter((product) => product.available && product.stock > 0)),
+          listOffers(),
+          getSuperOferta(),
+        ]);
 
     const relevantKnowledge = selectRelevantWhatsappKnowledge(knowledge, input.message ?? "");
-    const relevantProducts = selectRelevantWhatsappProducts<(typeof products)[number]>(products, input.message ?? "");
+    // La lista mayorista es corta: va completa para que el asistente vea todas
+    // las marcas y presentaciones. Del catálogo minorista, solo lo relacionado.
+    const relevantProducts = cuentaCorriente
+      ? products.slice(0, WHOLESALE_MAX_PRODUCTS)
+      : selectRelevantWhatsappProducts<(typeof products)[number]>(products, input.message ?? "");
     await recordWhatsappInteraction({ contactId: contact.id, leadId: contact.leadId, phone: contact.phone, message: input.message });
 
     return ok({
