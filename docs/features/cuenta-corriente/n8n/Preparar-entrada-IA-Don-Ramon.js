@@ -197,14 +197,84 @@ if (wholesale) {
 } else {
   lines.push('', '=== PRODUCTOS DEL CATÁLOGO ===');
 
-  // La web ya busca en todo el catálogo (plurales, abreviaturas) y devuelve
-  // las coincidencias ordenadas por relevancia. Acá no se vuelve a filtrar:
-  // un segundo filtro por texto exacto descartaba productos bien elegidos.
+  // Búsqueda por palabras: entiende plurales y abreviaturas del catálogo, el
+  // nombre pesa más que la descripción, "sin piel" descarta lo que dice
+  // "C/PIEL" o "con piel" y "por kg" pone primero lo que se vende suelto.
+  const ABBREVIATIONS = {
+    hmb: "hamburguesa",
+    hamb: "hamburguesa",
+    hambur: "hamburguesa",
+    hamburg: "hamburguesa",
+    mila: "milanesa",
+    jyq: "jamon queso",
+    rell: "rellena",
+    cong: "congelada",
+  };
+  const NOISE = new Set([
+    "sin", "buen", "dia", "tenes", "tene", "hay", "algun", "alguna", "recomenda", "recomienda",
+    "recomendame", "cuanto", "sale", "cuesta", "vale", "esta", "estan", "busco", "queria", "kilo",
+    "como", "cuando", "donde", "pero", "porque", "sobre", "tiene", "unos", "unas", "buenos", "dias",
+    "tardes", "noches", "gracias", "favor", "dame", "decime",
+  ]);
+  const stem = (term) =>
+    term.length > 4 && term.endsWith("es")
+      ? term.slice(0, -2)
+      : term.length > 3 && term.endsWith("s")
+        ? term.slice(0, -1)
+        : term;
+  const rawWords = (value) =>
+    normalize(value)
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .split(" ")
+      .filter(Boolean);
+  const words = (value) =>
+    rawWords(value)
+      .flatMap((word) => (ABBREVIATIONS[word] ?? word).split(" "))
+      .map(stem);
+  const hasPair = (list, first, second) =>
+    list.some((word, index) => first.includes(word) && list[index + 1] === second);
+  const matches = (list, term) =>
+    list.some((word) => word === term || (term.length >= 4 && word.startsWith(term)));
+
+  const messageWords = rawWords(base.text);
+  const searchTerms = [
+    ...new Set(
+      messageWords
+        .flatMap((word) => (ABBREVIATIONS[word] ?? word).split(" "))
+        .filter((term) => term.length >= 3 && !stopWords.has(term))
+        .map(stem)
+        .filter((term) => !NOISE.has(term))
+    ),
+  ];
+  const excluded = messageWords.flatMap((word, index) =>
+    word === "sin" && messageWords[index + 1] ? [stem(messageWords[index + 1])] : []
+  );
+  const perKilo = /\b(por|x|el|al) (kg|kilo)s?\b|\bxkg\b|\bsuelt[oa]s?\b/.test(messageWords.join(" "));
+
+  const rankedProducts = activeProducts.map((product, index) => {
+    const nameWords = words(product.name);
+    const otherWords = words(`${product.category} ${product.description}`);
+    const allWords = [...nameWords, ...otherWords];
+    if (excluded.some((word) => hasPair(allWords, ["c", "con"], word))) {
+      return { product, index, score: 0 };
+    }
+    const score =
+      searchTerms.reduce(
+        (total, term) => total + (matches(nameWords, term) ? 3 : matches(otherWords, term) ? 1 : 0),
+        0
+      ) + excluded.filter((word) => hasPair(allWords, ["s", "sin"], word)).length;
+    const loose = perKilo && (nameWords.includes("xkg") || hasPair(nameWords, ["x", "por"], "kg"));
+    return { product, index, score: score > 0 && loose ? score + 2 : score };
+  });
+
+  rankedProducts.sort((a, b) => b.score - a.score || a.index - b.index);
+
   const maxProducts = isCatalogRequest ? 60 : 30;
 
-  const selectedProducts = activeProducts
-    .slice(0, maxProducts)
-    .map((product) => ({ product }));
+  const selectedProducts = rankedProducts
+    .filter((item) => isCatalogRequest || item.score > 0)
+    .slice(0, maxProducts);
 
   if (selectedProducts.length === 0) {
     lines.push('No se encontró una coincidencia exacta en el catálogo recibido.');
