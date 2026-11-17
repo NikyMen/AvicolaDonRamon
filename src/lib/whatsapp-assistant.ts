@@ -75,7 +75,9 @@ export function selectRelevantWhatsappProducts<T extends SearchableProduct>(
   message: string,
   options: { maxProducts?: number } = {}
 ): T[] {
-  const terms = searchTerms(message);
+  const terms = productSearchTerms(message);
+  const excluded = excludedWords(message);
+  const porKilo = /\b(por|x|el|al) (kg|kilo)s?\b|\bxkg\b|\bsuelt[oa]s?\b/.test(searchable(message));
   const isCatalogRequest = /\blista\b|\bcatalogo\b|\bcatalog\b|\btodos\b|\bproductos\b|\bprecios\b|\bque tienen\b/.test(
     searchable(message)
   );
@@ -83,9 +85,21 @@ export function selectRelevantWhatsappProducts<T extends SearchableProduct>(
   const ranked = products
     .filter((product) => product.available)
     .map((product, index) => {
-      const text = searchable(`${product.name} ${product.category} ${product.description}`);
-      const score = terms.reduce((total, term) => total + (text.includes(term) ? 1 : 0), 0);
-      return { product, index, score };
+      // El nombre pesa mas que la descripcion: "ideal para milanesas" en una
+      // pechuga no puede ganarle a un producto que se llama milanesa.
+      const nombre = productWords(product.name);
+      const otros = productWords(`${product.category} ${product.description}`);
+      const todas = [...nombre, ...otros];
+      // "sin piel" no puede traer primero lo que dice "C/PIEL" o "con piel".
+      if (excluded.some((word) => hasPair(todas, ["c", "con"], word))) return { product, index, score: 0 };
+      const score =
+        terms.reduce(
+          (total, term) => total + (matchesWord(nombre, term) ? 3 : matchesWord(otros, term) ? 1 : 0),
+          0
+        ) + excluded.filter((word) => hasPair(todas, ["s", "sin"], word)).length;
+      // Si pide "por kg", lo que se vende suelto va antes que cajas y bolsas.
+      const suelto = porKilo && (nombre.includes("xkg") || hasPair(nombre, ["x", "por"], "kg"));
+      return { product, index, score: score > 0 && suelto ? score + 2 : score };
     })
     .filter(({ score }) => isCatalogRequest || score > 0)
     .sort((a, b) => b.score - a.score || a.index - b.index);
@@ -102,6 +116,63 @@ function raiz(term: string): string {
   if (term.length > 4 && term.endsWith("es")) return term.slice(0, -2);
   if (term.length > 3 && term.endsWith("s")) return term.slice(0, -1);
   return term;
+}
+
+/**
+ * Abreviaturas habituales del sistema de gestion y del cliente. Se expanden en
+ * el nombre del producto y en la consulta para que "hamburguesas de jamon y
+ * queso" encuentre "D.R HMB JYQ X KG" y "mila" encuentre "milanesa".
+ */
+const PRODUCT_ABBREVIATIONS: Record<string, string> = {
+  hmb: "hamburguesa",
+  hamb: "hamburguesa",
+  hambur: "hamburguesa",
+  hamburg: "hamburguesa",
+  mila: "milanesa",
+  jyq: "jamon queso",
+  rell: "rellena",
+  cong: "congelada",
+};
+
+/** Palabras de un texto, sin plural y con las abreviaturas expandidas. */
+function productWords(value: string): string[] {
+  return searchable(value)
+    .split(" ")
+    .flatMap((word) => (PRODUCT_ABBREVIATIONS[word] ?? word).split(" "))
+    .map(raiz)
+    .filter(Boolean);
+}
+
+/** Muletillas de una consulta de productos que no nombran ninguno. */
+const PRODUCT_QUERY_NOISE = new Set([
+  "sin", "buen", "dia", "tenes", "tene", "hay", "algun", "alguna", "recomenda", "recomienda", "recomendame",
+  "cuanto", "sale", "cuesta", "vale", "esta", "estan", "necesito", "busco", "queria", "kilo",
+]);
+
+/** Terminos de la consulta del cliente, comparables con productWords. */
+function productSearchTerms(message: string): string[] {
+  return [...new Set(
+    searchable(message)
+      .split(" ")
+      .flatMap((word) => (PRODUCT_ABBREVIATIONS[word] ?? word).split(" "))
+      .filter((term) => term.length >= 3 && !SEARCH_STOP_WORDS.has(term))
+      .map(raiz)
+      .filter((term) => !PRODUCT_QUERY_NOISE.has(term))
+  )].slice(0, 24);
+}
+
+/** Lo que el cliente pidio "sin": en "pata sin piel", devuelve ["piel"]. */
+function excludedWords(message: string): string[] {
+  const words = searchable(message).split(" ");
+  return words.flatMap((word, index) => (word === "sin" && words[index + 1] ? [raiz(words[index + 1])] : []));
+}
+
+function hasPair(words: string[], first: string[], second: string): boolean {
+  return words.some((word, index) => first.includes(word) && words[index + 1] === second);
+}
+
+function matchesWord(words: string[], term: string): boolean {
+  return words.some((word) => word === term || (term.length >= 4 && word.startsWith(term)));
 }
 
 /**

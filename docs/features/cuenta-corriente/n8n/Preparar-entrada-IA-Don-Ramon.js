@@ -63,7 +63,11 @@ if (!wholesale && business.offers?.length) {
   }
 }
 
-if (business.delivery) {
+const DAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const dayList = (days) =>
+  (days ?? []).map((day) => DAY_NAMES[day]).filter(Boolean).join(', ');
+
+if (business.delivery && business.delivery.enabled !== false) {
   const delivery = business.delivery;
 
   const deliveryCost = delivery.freeAllSlots
@@ -74,22 +78,21 @@ if (business.delivery) {
 
   lines.push(
     `ENVÍO: ${deliveryCost}`,
-    `COBERTURA: ${clean(delivery.coverage)}`,
-    `MÍNIMO DE COMPRA: $${delivery.minimumOrder ?? 0}`,
-    `ENVÍO SÁBADOS: ${
-      delivery.freeSaturday
-        ? 'Bonificado'
-        : 'Según tarifa configurada'
-    }`,
-    `CORTE COLONIA AVELLANEDA: ${clean(
-      delivery.orderCutoffs?.coloniaAvellaneda ||
-        'Consultar disponibilidad'
-    )}`,
-    `CORTE SAN BENITO: ${clean(
-      delivery.orderCutoffs?.sanBenito ||
-        'Consultar disponibilidad'
-    )}`
+    `COBERTURA: ${clean(delivery.coverage) || 'Consultar'}`,
+    `MÍNIMO DE COMPRA: $${delivery.minimumOrder ?? 0}`
   );
+  // Formato actual: días de la semana (0 = domingo). freeSaturday es el anterior.
+  const freeDays = dayList(delivery.freeDays);
+  if (freeDays) lines.push(`ENVÍO BONIFICADO: ${freeDays}`);
+  else if (delivery.freeSaturday) lines.push('ENVÍO SÁBADOS: Bonificado');
+  const noDelivery = dayList(delivery.noDeliveryWeekdays);
+  if (noDelivery) lines.push(`SIN REPARTO: ${noDelivery}`);
+  if (delivery.noDeliveryDates?.length) lines.push(`SIN REPARTO (fechas): ${delivery.noDeliveryDates.join(', ')}`);
+  for (const [zone, cutoff] of Object.entries(delivery.orderCutoffs ?? {})) {
+    lines.push(`CORTE ${clean(zone).toUpperCase()}: ${clean(cutoff)}`);
+  }
+} else if (business.delivery) {
+  lines.push('ENVÍO: No disponible, solo retiro en el local');
 }
 
 if (business.branches?.length) {
@@ -97,21 +100,21 @@ if (business.branches?.length) {
 
   for (const branch of business.branches) {
     const hours = branch.hours ?? {};
+    lines.push(`LOCAL: ${clean(branch.name)}`, `DIRECCIÓN: ${clean(branch.address)}`);
 
-    lines.push(
-      `LOCAL: ${clean(branch.name)}`,
-      `DIRECCIÓN: ${clean(branch.address)}`,
-      `LUNES A VIERNES: ${clean(hours.weekdays)}`,
-      `SÁBADOS: ${clean(hours.saturday)}`,
-      `DOMINGOS: ${clean(hours.sunday)}`,
-      `RETIRO: ${clean(
-        hours.pickup || 'Dentro del horario de atención'
-      )}`,
-      `WHATSAPP: ${clean(
-        hours.whatsapp || 'Dentro del horario de atención'
-      )}`,
-      ''
-    );
+    if (Array.isArray(hours)) {
+      // Formato actual: los renglones de Configuración → Horarios.
+      for (const line of hours) lines.push(`HORARIO: ${clean(line)}`);
+    } else {
+      lines.push(
+        `LUNES A VIERNES: ${clean(hours.weekdays)}`,
+        `SÁBADOS: ${clean(hours.saturday)}`,
+        `DOMINGOS: ${clean(hours.sunday)}`,
+        `RETIRO: ${clean(hours.pickup || 'Dentro del horario de atención')}`,
+        `WHATSAPP: ${clean(hours.whatsapp || 'Dentro del horario de atención')}`
+      );
+    }
+    lines.push('');
   }
 }
 
@@ -194,24 +197,14 @@ if (wholesale) {
 } else {
   lines.push('', '=== PRODUCTOS DEL CATÁLOGO ===');
 
-  const rankedProducts = activeProducts.map((product) => {
-    const searchableText = normalize(
-      `${product.name} ${product.category} ${product.description}`
-    );
-    const score = terms.reduce(
-      (total, term) => total + (searchableText.includes(term) ? 1 : 0),
-      0
-    );
-    return { product, score };
-  });
-
-  rankedProducts.sort((a, b) => b.score - a.score);
-
+  // La web ya busca en todo el catálogo (plurales, abreviaturas) y devuelve
+  // las coincidencias ordenadas por relevancia. Acá no se vuelve a filtrar:
+  // un segundo filtro por texto exacto descartaba productos bien elegidos.
   const maxProducts = isCatalogRequest ? 60 : 30;
 
-  const selectedProducts = rankedProducts
-    .filter((item) => isCatalogRequest || item.score > 0)
-    .slice(0, maxProducts);
+  const selectedProducts = activeProducts
+    .slice(0, maxProducts)
+    .map((product) => ({ product }));
 
   if (selectedProducts.length === 0) {
     lines.push('No se encontró una coincidencia exacta en el catálogo recibido.');
